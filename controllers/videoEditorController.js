@@ -4,11 +4,28 @@ const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const { toRelativePath, toAbsolutePath, normalizePath } = require('../utils/pathUtils');
 
-// Ensure edited_videos directory exists
-const editedVideosDir = path.join(__dirname, '../public/edited_videos');
-fs.mkdir(editedVideosDir, { recursive: true }).catch(err => {
-    console.error('Error creating edited_videos directory:', err);
-});
+// Define paths
+const publicDir = path.join(__dirname, '../public');
+const editedVideosDir = path.join(publicDir, 'edited_videos');
+
+// Create necessary directories with proper permissions
+async function ensureDirectoriesExist() {
+    try {
+        // Create public directory if it doesn't exist
+        await fs.mkdir(publicDir, { recursive: true, mode: 0o755 });
+
+        // Create edited_videos directory if it doesn't exist
+        await fs.mkdir(editedVideosDir, { recursive: true, mode: 0o755 });
+
+        // Double-check permissions
+        await fs.chmod(editedVideosDir, 0o755);
+
+        console.log('Directories created and permissions set');
+    } catch (err) {
+        console.error('Error creating directories:', err);
+        throw new Error('Failed to create or set permissions on necessary directories');
+    }
+}
 
 // Render editor page
 exports.renderEditor = async (req, res) => {
@@ -72,24 +89,30 @@ exports.renderEditor = async (req, res) => {
 
 // Process video edits
 exports.processVideo = async (req, res) => {
-    const {
-        videoId,
-        pageId,
-        trimStart,
-        trimEnd,
-        cropWidth,
-        cropHeight,
-        cropX,
-        cropY,
-        textOverlay,
-        textX,
-        textY,
-        textSize,
-        textColor,
-        isEdited
-    } = req.body;
-
     try {
+        // Ensure directories exist before processing
+        await ensureDirectoriesExist();
+
+        const {
+            videoId,
+            pageId,
+            trimStart,
+            trimEnd,
+            cropWidth,
+            cropHeight,
+            cropX,
+            cropY,
+            textOverlay,
+            textX,
+            textY,
+            textSize,
+            textWeight,
+            textColor,
+            textBgColor,
+            textBgOpacity,
+            isEdited
+        } = req.body;
+
         // Fetch video based on isEdited
         let video;
         if (isEdited === 'true') {
@@ -119,10 +142,9 @@ exports.processVideo = async (req, res) => {
         // Generate output path
         const outputFileName = `${videoId}_${Date.now()}_edited.mp4`;
         const outputPath = path.join(editedVideosDir, outputFileName);
-        const relativePath = `edited_videos/${outputFileName}`;
+        const relativePath = path.join('edited_videos', outputFileName).replace(/\\/g, '/');
 
         // Normalize input path
-        const publicDir = path.join(__dirname, '../public');
         let inputPath = isEdited === 'true' ? video.edited_file : video.downloadedFile;
         if (!path.isAbsolute(inputPath)) {
             inputPath = path.join(publicDir, inputPath);
@@ -134,12 +156,26 @@ exports.processVideo = async (req, res) => {
             throw new Error(`Input file does not exist: ${inputPath}`);
         });
 
+        console.log('Processing video with paths:', {
+            inputPath,
+            outputPath,
+            relativePath
+        });
+
         // Build FFmpeg command
         const command = ffmpeg(inputPath)
             .videoCodec('libx264')
             .audioCodec('aac')
+            .on('start', (commandLine) => {
+                console.log('FFmpeg command:', commandLine);
+            })
             .on('progress', (progress) => {
                 console.log('Processing: ' + progress.percent + '% done');
+            })
+            .on('error', (err, stdout, stderr) => {
+                console.error('FFmpeg error:', err);
+                console.error('FFmpeg stdout:', stdout);
+                console.error('FFmpeg stderr:', stderr);
             });
 
         if (trimStart || trimEnd) {
@@ -158,23 +194,46 @@ exports.processVideo = async (req, res) => {
 
             // Use provided font size and color, or fallback to defaults
             const fontSize = textSize || 24;
+            const fontWeight = textWeight || 400;
             const color = textColor?.replace('#', '0x') || 'white';
 
-            command.videoFilter(
-                `drawtext=text='${textOverlay}':` +
-                `fontcolor=${color}:` +
-                `fontsize=${fontSize}:` +
-                `x=${xPos}:` +
-                `y=${yPos}`
-            );
+            // Handle background color and opacity
+            const bgColor = textBgColor?.replace('#', '0x') || '000000';
+            const bgOpacity = textBgOpacity ? parseInt(textBgOpacity) / 100 : 0.5;
+
+            // Build the drawtext filter with all options
+            const drawTextFilter = [
+                // Escape Unicode text for FFmpeg
+                `drawtext=text='${textOverlay.replace(/'/g, "'\\\\\\''")}'`,
+                `fontcolor=${color}`,
+                `fontsize=${fontSize}`,
+                `x=${xPos}`,
+                `y=${yPos}`,
+                // Use a font that supports Bengali characters
+                `fontfile=/System/Library/Fonts/Supplemental/Bangla\ MN.ttc`,
+                // Add box around text for background
+                'box=1',
+                `boxcolor=${bgColor}@${bgOpacity}`,
+                'boxborderw=5' // Add some padding around the text
+            ].join(':');
+
+            console.log('Using drawtext filter:', drawTextFilter);
+
+            command.videoFilter(drawTextFilter);
         }
 
-        // Execute FFmpeg
+        // Execute FFmpeg with better error handling
         await new Promise((resolve, reject) => {
             command
                 .output(outputPath)
-                .on('end', resolve)
-                .on('error', (err) => reject(new Error(`FFmpeg error: ${err.message}`)))
+                .on('end', () => {
+                    console.log('FFmpeg processing finished');
+                    resolve();
+                })
+                .on('error', (err, stdout, stderr) => {
+                    console.error('FFmpeg processing failed:', { error: err, stdout, stderr });
+                    reject(new Error(`FFmpeg error: ${err.message}\nStdout: ${stdout}\nStderr: ${stderr}`));
+                })
                 .run();
         });
 
@@ -188,13 +247,11 @@ exports.processVideo = async (req, res) => {
         const editParams = { trimStart, trimEnd, cropWidth, cropHeight, cropX, cropY, textOverlay };
         await new Promise((resolve, reject) => {
             if (isEdited === 'true') {
-                // Update existing edited video
                 VideoEditor.updateEditedVideo(videoId, pageId, relativePath, editParams, (err) => {
                     if (err) reject(err);
                     resolve();
                 });
             } else {
-                // Create new edited video
                 VideoEditor.saveEditedVideo(videoId, pageId, relativePath, editParams, (err) => {
                     if (err) reject(err);
                     resolve();
