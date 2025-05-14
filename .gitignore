@@ -11,6 +11,9 @@ yarn-error.log
 
 # Build output
 public/edited_videos/
+public/downloads/
+public/videos/
+public/images/
 
 # IDE and editor files
 .idea/
