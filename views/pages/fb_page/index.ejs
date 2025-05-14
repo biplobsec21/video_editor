@@ -1,0 +1,19 @@
+<form action="/sync" method="GET" class="mb-4">
+    <button class="bg-blue-500 text-white px-4 py-2 rounded">Sync Facebook Pages</button>
+</form>
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+    <% pages.forEach(page=> { %>
+        <div class="bg-white rounded-lg shadow-md overflow-hidden flex items-center">
+            <img src="<%= page.page_image %>" alt="<%= page.name %>" class="w-32 h-32 object-cover">
+            <div class="p-4 flex-1 flex flex-col justify-between h-full">
+                <h3 class="text-lg font-semibold mb-2">
+                    <%= page.name %>
+                </h3>
+                <a href="/pages/<%= page.id %>"
+                    class="mt-auto inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition w-auto">
+                    View
+                </a>
+            </div>
+        </div>
+        <% }) %>
+</div>

@@ -1,0 +1,219 @@
+<div class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">Video Collection</h1>
+
+        <!-- Upload Feedback -->
+        <% if (uploadMessage) { %>
+            <p class="text-<%= uploadSuccess ? 'green' : 'red' %>-500 mb-4">
+                <%= uploadMessage %>
+            </p>
+            <% } %>
+
+                <!-- JSON File Upload Section -->
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 class="text-xl font-semibold mb-4">Upload JSON File</h2>
+                    <form action="/video_collection/upload" method="POST" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="jsonFile" class="block text-sm font-medium text-gray-700">Select JSON
+                                File</label>
+                            <input type="file" id="jsonFile" name="jsonFile" accept=".json"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <button type="submit"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Upload
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Page List Section -->
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Pages</h2>
+                    <% if (pages && pages.length> 0) { %>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200" role="grid" aria-label="Pages Table">
+                                <thead class="bg-gray-50">
+                                    <tr role="row">
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Page Name
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Reels
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Image
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            JSON Files
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" role="rowgroup">
+                                    <% pages.forEach(page=> { %>
+                                        <tr role="row">
+                                            <td role="cell" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <strong>
+                                                    <a href="/video_collection/page/<%= page.id %>"
+                                                        class="text-indigo-600 hover:text-indigo-900">
+                                                        <%= page.pageName %>
+                                                    </a>
+                                                </strong>
+                                                <i>
+                                                    <%= page.followersText || 'N/A' %>
+                                                </i>
+                                            </td>
+                                            <td role="cell" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <button onclick="showDownloadForm(<%= page.id %>)"
+                                                    class="text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm">
+                                                    Download Reels
+                                                </button>
+                                            </td>
+                                            <td role="cell" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <button onclick="showReels(<%= page.id %>)"
+                                                    class="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm"
+                                                    aria-label="Show reels for <%= page.pageName %>">
+                                                    Show Reels
+                                                </button>
+                                            </td>
+                                            <td role="cell" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <% if (page.imageUrl) { %>
+                                                    <img src="<%= page.imageUrl %>" alt="Page Image"
+                                                        class="h-12 w-12 object-cover rounded" loading="lazy">
+                                                    <% } else { %>
+                                                        No Image
+                                                        <% } %>
+                                            </td>
+                                            <td role="cell" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <button
+                                                    onclick="showJsonFiles(<%= page.id %>, '<%= JSON.stringify(page.jsonFiles) %>')"
+                                                    class="text-indigo-600 hover:text-indigo-900">Show Files</button>
+                                            </td>
+                                        </tr>
+                                        <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                        <% } else { %>
+                            <p class="text-gray-500">No pages found.</p>
+                            <% } %>
+                </div>
+    </div>
+
+    <!-- Modal for Reels -->
+    <div id="reelsModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50"
+        role="dialog" aria-labelledby="reelsModalTitle" aria-modal="true">
+        <div class="bg-white p-6 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="reelsModalTitle" class="text-xl font-semibold">Reels</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700"
+                    aria-label="Close reels modal">×</button>
+            </div>
+            <div id="reelsContent" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Reels will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for JSON Files -->
+    <div id="jsonFilesModal"
+        class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50" role="dialog"
+        aria-labelledby="jsonFilesModalTitle" aria-modal="true">
+        <div class="bg-white p-6 rounded-lg max-w-lg w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="jsonFilesModalTitle" class="text-xl font-semibold">JSON Files</h2>
+                <button onclick="closeJsonFilesModal()" class="text-gray-500 hover:text-gray-700"
+                    aria-label="Close JSON files modal">×</button>
+            </div>
+            <div id="jsonFilesContent" class="space-y-2">
+                <!-- JSON files will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Download Form -->
+    <div id="downloadFormModal"
+        class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50" role="dialog"
+        aria-labelledby="downloadFormModalTitle" aria-modal="true">
+        <div class="bg-white p-6 rounded-lg max-w-lg w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="downloadFormModalTitle" class="text-xl font-semibold">Download Reels</h2>
+                <button onclick="closeDownloadFormModal()" class="text-gray-500 hover:text-gray-700"
+                    aria-label="Close download form modal">×</button>
+            </div>
+            <form id="downloadReelsForm" method="POST" action="">
+                <div class="mb-4">
+                    <label for="subdirectory" class="block text-sm font-medium text-gray-700">Download Directory
+                        Name</label>
+                    <input type="text" id="subdirectory" name="subdirectory"
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="e.g., my-reels">
+                </div>
+                <button type="submit"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Start Download
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/scripts/reels.js"></script>
+<script>
+    function showJsonFiles(pageId, jsonFiles) {
+        console.log('Showing JSON files for pageId:', pageId, 'Files:', jsonFiles);
+        let files;
+        try {
+            files = JSON.parse(jsonFiles);
+        } catch (e) {
+            console.error('Error parsing JSON files:', e);
+            files = [];
+        }
+        const jsonFilesContent = document.getElementById('jsonFilesContent');
+        jsonFilesContent.innerHTML = '';
+
+        if (files.length === 0) {
+            jsonFilesContent.innerHTML = '<p class="text-gray-500">No JSON files found.</p>';
+        } else {
+            files.forEach(file => {
+                const fileDiv = document.createElement('div');
+                fileDiv.innerHTML = `<a href="/video_collection/download/${encodeURIComponent(file)}" download
+                    class="text-indigo-600 hover:text-indigo-900">${file.split('/').pop()}</a>`;
+                jsonFilesContent.appendChild(fileDiv);
+            });
+        }
+
+        document.getElementById('jsonFilesModal').classList.remove('hidden');
+    }
+
+    function closeJsonFilesModal() {
+        document.getElementById('jsonFilesModal').classList.add('hidden');
+    }
+
+    function showDownloadForm(pageId) {
+        const form = document.getElementById('downloadReelsForm');
+        form.action = `/video_collection/download/${pageId}`;
+        document.getElementById('downloadFormModal').classList.remove('hidden');
+    }
+
+    function closeDownloadFormModal() {
+        document.getElementById('downloadFormModal').classList.add('hidden');
+    }
+
+    // Fallback for reels.js
+    if (typeof showReels === 'undefined') {
+        function showReels(pageId) {
+            alert('Reels functionality is not available. Please try again later.');
+        }
+        function closeModal() {
+            document.getElementById('reelsModal').classList.add('hidden');
+        }
+    }
+</script>
