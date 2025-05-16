@@ -77,6 +77,10 @@
                             <div class="flex items-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 video-item"
                                 data-video-id="<%= video.video_id %>" data-file="<%= video.edited_file %>"
                                 data-is-edited="true">
+                                ${video.thumbnail ? `
+                                <img src="/${video.thumbnail}" alt="Thumbnail"
+                                    class="w-16 h-16 object-cover rounded-lg shadow-sm">
+                                ` : `
                                 <div
                                     class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
                                     <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor"
@@ -85,11 +89,13 @@
                                             d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                     </svg>
                                 </div>
+                                `}
                                 <div class="ml-3 flex-1">
-                                    <p class="text-sm font-medium text-gray-800">
-                                        <%= video.edited_file.split('/').pop() %>
-                                    </p>
-                                    <p class="text-xs text-gray-500">Edited Version</p>
+                                    <div class="flex justify-between items-start">
+                                        <p class="text-sm font-medium text-gray-800">
+                                            ${video.edited_file.split('/').pop()}</p>
+                                    </div>
+                                    <p class="text-xs text-gray-500">${new Date(video.created_at).toLocaleString()}</p>
                                 </div>
                             </div>
                             <% }) %>
@@ -135,6 +141,8 @@
             const progressStatus = document.getElementById('progressStatus');
             const setTrimStartBtn = document.getElementById('setTrimStartBtn');
             const setTrimEndBtn = document.getElementById('setTrimEndBtn');
+            const setTextStartBtn = document.getElementById('setTextStartBtn');
+            const setTextEndBtn = document.getElementById('setTextEndBtn');
             let processingStartTime;
 
             if (!form) {
@@ -209,6 +217,43 @@
                 return true;
             }
 
+            // Text timing control functions
+            if (setTextStartBtn) {
+                setTextStartBtn.addEventListener('click', function () {
+                    const textStartInput = document.getElementById('textStartTime');
+                    if (textStartInput && videoPlayer) {
+                        textStartInput.value = videoPlayer.currentTime.toFixed(1);
+                    }
+                });
+            }
+
+            if (setTextEndBtn) {
+                setTextEndBtn.addEventListener('click', function () {
+                    const textEndInput = document.getElementById('textEndTime');
+                    if (textEndInput && videoPlayer) {
+                        textEndInput.value = videoPlayer.currentTime.toFixed(1);
+                    }
+                });
+            }
+
+            // Validate text timing inputs
+            function validateTextTiming() {
+                const textStartTime = parseFloat(document.getElementById('textStartTime').value) || 0;
+                const textEndTime = parseFloat(document.getElementById('textEndTime').value) || (videoPlayer ? videoPlayer.duration : 0);
+
+                if (textStartTime >= textEndTime) {
+                    alert('Text start time must be less than end time');
+                    return false;
+                }
+
+                if (videoPlayer && (textStartTime < 0 || textEndTime > videoPlayer.duration)) {
+                    alert('Text timing values must be within video duration');
+                    return false;
+                }
+
+                return true;
+            }
+
             // Update video duration and current time
             if (videoPlayer) {
                 videoPlayer.addEventListener('loadedmetadata', function () {
@@ -255,6 +300,100 @@
                 });
             }
 
+            // Text overlay management
+            const textOverlaysContainer = document.getElementById('textOverlaysContainer');
+            const textOverlayTemplate = document.getElementById('textOverlayTemplate');
+            const addTextOverlayBtn = document.getElementById('addTextOverlay');
+            const advancedModeToggle = document.getElementById('advancedMode');
+            const simpleModeDiv = document.getElementById('simpleMode');
+            const advancedModeDiv = document.getElementById('advancedModeContainer');
+
+            // Mode switching
+            if (advancedModeToggle) {
+                advancedModeToggle.addEventListener('change', function () {
+                    const isAdvanced = this.checked;
+                    simpleModeDiv.classList.toggle('hidden', isAdvanced);
+                    advancedModeDiv.classList.toggle('hidden', !isAdvanced);
+                    addTextOverlayBtn.classList.toggle('hidden', !isAdvanced);
+
+                    // If switching to advanced mode, add initial text overlay if none exists
+                    if (isAdvanced && textOverlaysContainer.children.length === 0) {
+                        addTextOverlay();
+                    }
+                });
+            }
+
+            function addTextOverlay(overlayData = null) {
+                const clone = document.importNode(textOverlayTemplate.content, true);
+                const entry = clone.querySelector('.text-overlay-entry');
+
+                // Add remove handler
+                entry.querySelector('.remove-text-overlay').addEventListener('click', function () {
+                    entry.remove();
+                });
+
+                // Add time set handlers
+                entry.querySelector('.set-text-start').addEventListener('click', function () {
+                    const startInput = this.parentElement.querySelector('input');
+                    if (startInput && videoPlayer) {
+                        startInput.value = videoPlayer.currentTime.toFixed(1);
+                    }
+                });
+
+                entry.querySelector('.set-text-end').addEventListener('click', function () {
+                    const endInput = this.parentElement.querySelector('input');
+                    if (endInput && videoPlayer) {
+                        endInput.value = videoPlayer.currentTime.toFixed(1);
+                    }
+                });
+
+                // Populate with existing data if provided
+                if (overlayData) {
+                    entry.querySelector('input[name="textOverlays[][text]"]').value = overlayData.text || '';
+                    entry.querySelector('input[name="textOverlays[][startTime]"]').value = overlayData.startTime || 0;
+                    entry.querySelector('input[name="textOverlays[][endTime]"]').value = overlayData.endTime || '';
+                    entry.querySelector('input[name="textOverlays[][x]"]').value = overlayData.x || 50;
+                    entry.querySelector('input[name="textOverlays[][y]"]').value = overlayData.y || 50;
+                    entry.querySelector('input[name="textOverlays[][fontSize]"]').value = overlayData.fontSize || 24;
+                    entry.querySelector('input[name="textOverlays[][color]"]').value = overlayData.color || '#ffffff';
+                    entry.querySelector('input[name="textOverlays[][bgColor]"]').value = overlayData.bgColor || '#000000';
+                    entry.querySelector('input[name="textOverlays[][bgOpacity]"]').value = overlayData.bgOpacity || 50;
+                }
+
+                textOverlaysContainer.appendChild(clone);
+            }
+
+            // Add text overlay button handler
+            if (addTextOverlayBtn) {
+                addTextOverlayBtn.addEventListener('click', addTextOverlay);
+            }
+
+            // Validate text overlays timing
+            function validateTextOverlays() {
+                const entries = textOverlaysContainer.querySelectorAll('.text-overlay-entry');
+                for (const entry of entries) {
+                    const startTime = parseFloat(entry.querySelector('input[name="textOverlays[][startTime]"]').value) || 0;
+                    const endTime = parseFloat(entry.querySelector('input[name="textOverlays[][endTime]"]').value) || (videoPlayer ? videoPlayer.duration : 0);
+                    const text = entry.querySelector('input[name="textOverlays[][text]"]').value.trim();
+
+                    if (!text) {
+                        alert('Please enter text for all text overlays');
+                        return false;
+                    }
+
+                    if (startTime >= endTime) {
+                        alert('Text start time must be less than end time for all text overlays');
+                        return false;
+                    }
+
+                    if (videoPlayer && (startTime < 0 || endTime > videoPlayer.duration)) {
+                        alert('Text timing values must be within video duration for all text overlays');
+                        return false;
+                    }
+                }
+                return true;
+            }
+
             // Form submission
             form.addEventListener('submit', async function (e) {
                 e.preventDefault();
@@ -262,6 +401,47 @@
 
                 if (!validateTrimInputs()) {
                     return;
+                }
+
+                // Collect form data
+                const formData = new FormData(form);
+                const data = {};
+                formData.forEach((value, key) => {
+                    if (!key.startsWith('textOverlays')) {
+                        data[key] = value;
+                    }
+                });
+
+                // Handle text overlay data based on mode
+                if (advancedModeToggle.checked) {
+                    // Advanced mode - multiple timed text overlays
+                    data.textOverlays = Array.from(textOverlaysContainer.querySelectorAll('.text-overlay-entry')).map(entry => ({
+                        text: entry.querySelector('input[name="textOverlays[][text]"]').value,
+                        startTime: entry.querySelector('input[name="textOverlays[][startTime]"]').value,
+                        endTime: entry.querySelector('input[name="textOverlays[][endTime]"]').value,
+                        x: entry.querySelector('input[name="textOverlays[][x]"]').value,
+                        y: entry.querySelector('input[name="textOverlays[][y]"]').value,
+                        fontSize: entry.querySelector('input[name="textOverlays[][fontSize]"]').value,
+                        color: entry.querySelector('input[name="textOverlays[][color]"]').value,
+                        bgColor: entry.querySelector('input[name="textOverlays[][bgColor]"]').value,
+                        bgOpacity: entry.querySelector('input[name="textOverlays[][bgOpacity]"]').value
+                    }));
+                } else {
+                    // Simple mode - single text overlay
+                    const simpleText = document.getElementById('simpleText').value.trim();
+                    if (simpleText) {
+                        data.textOverlays = [{
+                            text: simpleText,
+                            x: document.getElementById('simpleX').value,
+                            y: document.getElementById('simpleY').value,
+                            fontSize: document.getElementById('simpleFontSize').value,
+                            color: document.getElementById('simpleColor').value,
+                            bgColor: document.getElementById('simpleBgColor').value,
+                            bgOpacity: document.getElementById('simpleBgOpacity').value,
+                            startTime: '0',
+                            endTime: String(videoPlayer ? videoPlayer.duration : 0)
+                        }];
+                    }
                 }
 
                 try {
@@ -281,17 +461,6 @@
                     showProgress(true);
                     updateProgress(0, 'Starting process...', 'Preparing your video');
                     startProgressSimulation();
-
-                    // Collect form data
-                    const formData = new FormData(form);
-                    const data = {};
-                    formData.forEach((value, key) => {
-                        data[key] = value;
-                    });
-                    console.log('Form data:', data);
-
-                    // Ensure isEdited is a string
-                    data.isEdited = form.querySelector('input[name="isEdited"]').value;
 
                     // Send AJAX request
                     const response = await fetch('/video_editor/process', {
@@ -395,11 +564,14 @@
 
             // Load editor panel
             const videoId = videoItem.dataset.videoId;
+            const pageId = pageSelect.value;
             const isEdited = videoItem.dataset.isEdited === 'true';
+            const sourceFile = videoItem.dataset.file;
 
             console.log('Fetching editor panel for video:', videoId, 'isEdited:', isEdited);
 
-            fetch(`/video_editor/editorPanel/${videoId}?pageId=${pageSelect.value}&isEdited=${isEdited}`)
+            // Update URL to include both videoId and pageId
+            fetch(`/video_editor/editorPanel/${videoId}?pageId=${pageId}&isEdited=${isEdited}&sourceFile=${encodeURIComponent(sourceFile)}`)
                 .then(response => {
                     console.log('Editor panel fetch status:', response.status);
                     if (!response.ok) {
@@ -411,11 +583,91 @@
                     editorPanel.innerHTML = html;
                     console.log('Editor panel loaded');
                     initializeEditorPanel();
+
+                    // Reset form when loading a new video
+                    const form = document.getElementById('editForm');
+                    if (form) {
+                        form.reset();
+                    }
+
+                    // If this is an edited video and we want to edit it further,
+                    // we'll use it as the source but create a new version
+                    if (isEdited) {
+                        const videoPlayer = document.getElementById('videoPlayer');
+                        if (videoPlayer) {
+                            videoPlayer.src = `/${sourceFile}`;
+                        }
+                    }
                 })
                 .catch(error => {
                     console.error('Error loading editor panel:', error);
-                    editorPanel.innerHTML = '<div class="text-red-500">Error loading editor</div>';
+                    editorPanel.innerHTML = `
+                        <div class="p-4 text-center">
+                            <div class="text-red-500 mb-2">Error loading editor</div>
+                            <div class="text-sm text-gray-600">${error.message}</div>
+                        </div>`;
                 });
+        }
+
+        // Function to load edit history for a video
+        function loadEditHistory(videoId, pageId) {
+            fetch(`/video_editor/editHistory/${videoId}?pageId=${pageId}`)
+                .then(response => response.json())
+                .then(editHistory => {
+                    if (editHistory && editHistory.edit_params) {
+                        // Populate form with historical edit data
+                        populateEditForm(editHistory.edit_params);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading edit history:', error);
+                });
+        }
+
+        // Function to populate form with edit history
+        function populateEditForm(editParams) {
+            // Populate trim values
+            if (editParams.trim) {
+                document.getElementById('trimStart').value = editParams.trim.start || 0;
+                document.getElementById('trimEnd').value = editParams.trim.end || '';
+            }
+
+            // Populate crop values
+            if (editParams.crop) {
+                document.getElementById('cropWidth').value = editParams.crop.width || '';
+                document.getElementById('cropHeight').value = editParams.crop.height || '';
+                document.getElementById('cropX').value = editParams.crop.x || '';
+                document.getElementById('cropY').value = editParams.crop.y || '';
+            }
+
+            // Populate text overlays
+            if (editParams.textOverlays && editParams.textOverlays.length > 0) {
+                const advancedModeToggle = document.getElementById('advancedMode');
+                if (editParams.textOverlays.length > 1) {
+                    // Switch to advanced mode if multiple overlays
+                    advancedModeToggle.checked = true;
+                    advancedModeToggle.dispatchEvent(new Event('change'));
+
+                    // Clear existing overlays
+                    const container = document.getElementById('textOverlaysContainer');
+                    container.innerHTML = '';
+
+                    // Add each overlay
+                    editParams.textOverlays.forEach(overlay => {
+                        addTextOverlay(overlay);
+                    });
+                } else {
+                    // Single overlay - use simple mode
+                    const overlay = editParams.textOverlays[0];
+                    document.getElementById('simpleText').value = overlay.text || '';
+                    document.getElementById('simpleX').value = overlay.x || 50;
+                    document.getElementById('simpleY').value = overlay.y || 50;
+                    document.getElementById('simpleFontSize').value = overlay.fontSize || 24;
+                    document.getElementById('simpleColor').value = overlay.color || '#ffffff';
+                    document.getElementById('simpleBgColor').value = overlay.bgColor || '#000000';
+                    document.getElementById('simpleBgOpacity').value = overlay.bgOpacity || 50;
+                }
+            }
         }
 
         // Add click handlers to video items
@@ -456,15 +708,20 @@
                              data-video-id="${video.video_id}"
                              data-file="${video.edited_file}"
                              data-is-edited="true">
-                            <div class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
-                                <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                            </div>
+                            ${video.thumbnail ? `
+                                <img src="/${video.thumbnail}" alt="Thumbnail" 
+                                     class="w-16 h-16 object-cover rounded-lg shadow-sm">
+                            ` : `
+                                <div class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
+                                    <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </div>
+                            `}
                             <div class="ml-3 flex-1">
                                 <p class="text-sm font-medium text-gray-800">${video.edited_file.split('/').pop()}</p>
-                                <p class="text-xs text-gray-500">Edited Version</p>
+                                <p class="text-xs text-gray-500">${new Date(video.created_at).toLocaleString()}</p>
                             </div>
                         </div>
                     `).join('');

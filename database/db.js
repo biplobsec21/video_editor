@@ -116,6 +116,7 @@ db.serialize(() => {
             video_id INTEGER NOT NULL,
             page_id INTEGER NOT NULL,
             edited_file TEXT NOT NULL,
+            thumbnail TEXT,
             edit_params TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (video_id) REFERENCES videos(id),
@@ -126,6 +127,25 @@ db.serialize(() => {
             console.error('Error creating edited_videos table:', err);
         } else {
             console.log('edited_videos table created or already exists');
+
+            // Add thumbnail column if it doesn't exist
+            db.all("PRAGMA table_info(edited_videos)", [], (err, rows) => {
+                if (err) {
+                    console.error('Error checking table info:', err);
+                    return;
+                }
+
+                const hasThumbColumn = rows.some(row => row.name === 'thumbnail');
+                if (!hasThumbColumn) {
+                    db.run(`ALTER TABLE edited_videos ADD COLUMN thumbnail TEXT`, (err) => {
+                        if (err && !err.message.includes('duplicate column')) {
+                            console.error('Error adding thumbnail column:', err);
+                        } else {
+                            console.log('Thumbnail column added to edited_videos table');
+                        }
+                    });
+                }
+            });
         }
     });
 });

@@ -29,5 +29,6 @@ router.post('/video_editor/process', authenticate, videoEditorController.process
 router.get('/video_editor/videos/:pageId', authenticate, videoEditorController.getVideosByPageId);
 router.get('/video_editor/video/:videoId', authenticate, videoEditorController.getVideoById);
 router.get('/video_editor/editorPanel/:videoId', authenticate, videoEditorController.getEditorPanel);
+router.get('/video_editor/editHistory/:videoId', authenticate, videoEditorController.getEditHistory);
 
 module.exports = router;

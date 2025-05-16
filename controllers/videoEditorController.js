@@ -7,6 +7,7 @@ const { toRelativePath, toAbsolutePath, normalizePath } = require('../utils/path
 // Define paths
 const publicDir = path.join(__dirname, '../public');
 const editedVideosDir = path.join(publicDir, 'edited_videos');
+const thumbnailsDir = path.join(publicDir, 'thumbnails');
 
 // Create necessary directories with proper permissions
 async function ensureDirectoriesExist() {
@@ -17,14 +18,33 @@ async function ensureDirectoriesExist() {
         // Create edited_videos directory if it doesn't exist
         await fs.mkdir(editedVideosDir, { recursive: true, mode: 0o755 });
 
+        // Create thumbnails directory if it doesn't exist
+        await fs.mkdir(thumbnailsDir, { recursive: true, mode: 0o755 });
+
         // Double-check permissions
         await fs.chmod(editedVideosDir, 0o755);
+        await fs.chmod(thumbnailsDir, 0o755);
 
         console.log('Directories created and permissions set');
     } catch (err) {
         console.error('Error creating directories:', err);
         throw new Error('Failed to create or set permissions on necessary directories');
     }
+}
+
+// Generate thumbnail from video
+async function generateThumbnail(inputPath, outputPath) {
+    return new Promise((resolve, reject) => {
+        ffmpeg(inputPath)
+            .screenshots({
+                timestamps: ['50%'],
+                filename: path.basename(outputPath),
+                folder: path.dirname(outputPath),
+                size: '320x240'
+            })
+            .on('end', () => resolve())
+            .on('error', (err) => reject(err));
+    });
 }
 
 // Render editor page
@@ -102,53 +122,31 @@ exports.processVideo = async (req, res) => {
             cropHeight,
             cropX,
             cropY,
-            textOverlay,
-            textX,
-            textY,
-            textSize,
-            textWeight,
-            textColor,
-            textBgColor,
-            textBgOpacity,
-            isEdited
+            textOverlays,
+            sourceFile
         } = req.body;
 
-        // Fetch video based on isEdited
-        let video;
-        if (isEdited === 'true') {
-            const editedVideos = await new Promise((resolve, reject) => {
-                VideoEditor.getEditedVideosByPageId(pageId, (err, videos) => {
-                    if (err) reject(err);
-                    resolve(videos);
-                });
-            });
-            video = editedVideos.find(v => v.video_id == videoId);
-            if (!video) {
-                throw new Error('Edited video not found');
-            }
+        // Normalize input path - use sourceFile directly if provided
+        let inputPath;
+        if (sourceFile) {
+            // If sourceFile is provided, use it (this will be the edited video path when editing an edited video)
+            inputPath = path.join(publicDir, sourceFile);
         } else {
+            // Otherwise, get the original video
             const videos = await new Promise((resolve, reject) => {
                 VideoEditor.getVideosByPageId(pageId, (err, videos) => {
                     if (err) reject(err);
                     resolve(videos);
                 });
             });
-            video = videos.find(v => v.id == videoId);
-            if (!video || !video.fileExists) {
-                throw new Error('Video not found or file missing');
+
+            const originalVideo = videos.find(v => v.id == videoId);
+            if (!originalVideo || !originalVideo.fileExists) {
+                throw new Error('Original video not found or file missing');
             }
+            inputPath = path.join(publicDir, originalVideo.downloadedFile);
         }
 
-        // Generate output path
-        const outputFileName = `${videoId}_${Date.now()}_edited.mp4`;
-        const outputPath = path.join(editedVideosDir, outputFileName);
-        const relativePath = path.join('edited_videos', outputFileName).replace(/\\/g, '/');
-
-        // Normalize input path
-        let inputPath = isEdited === 'true' ? video.edited_file : video.downloadedFile;
-        if (!path.isAbsolute(inputPath)) {
-            inputPath = path.join(publicDir, inputPath);
-        }
         inputPath = path.normalize(inputPath);
 
         // Verify input file exists
@@ -156,10 +154,22 @@ exports.processVideo = async (req, res) => {
             throw new Error(`Input file does not exist: ${inputPath}`);
         });
 
+        // Generate output paths
+        const timestamp = Date.now();
+        const outputFileName = `${videoId}_${timestamp}_edited.mp4`;
+        const outputPath = path.join(editedVideosDir, outputFileName);
+        const relativePath = path.join('edited_videos', outputFileName).replace(/\\/g, '/');
+
+        // Generate thumbnail paths
+        const thumbnailFileName = `${videoId}_${timestamp}_thumb.jpg`;
+        const thumbnailPath = path.join(thumbnailsDir, thumbnailFileName);
+        const relativeThumbnailPath = path.join('thumbnails', thumbnailFileName).replace(/\\/g, '/');
+
         console.log('Processing video with paths:', {
             inputPath,
             outputPath,
-            relativePath
+            relativePath,
+            thumbnailPath
         });
 
         // Build FFmpeg command
@@ -180,46 +190,51 @@ exports.processVideo = async (req, res) => {
 
         if (trimStart || trimEnd) {
             command.setStartTime(trimStart || 0);
-            command.setDuration((trimEnd || video.durationMs / 1000) - (trimStart || 0));
+            command.setDuration((trimEnd || originalVideo.durationMs / 1000) - (trimStart || 0));
         }
 
         if (cropWidth && cropHeight) {
             command.videoFilter(`crop=${cropWidth}:${cropHeight}:${cropX || 0}:${cropY || 0}`);
         }
 
-        if (textOverlay) {
-            // Convert percentage positions to expressions that calculate pixel positions
-            const xPos = textX ? `(w-text_w)*${parseInt(textX) / 100}` : '(w-text_w)/2';
-            const yPos = textY ? `(h-text_h)*${parseInt(textY) / 100}` : '(h-text_h)/2';
+        // Handle multiple text overlays
+        if (textOverlays && textOverlays.length > 0) {
+            const textFilters = textOverlays.map(overlay => {
+                const {
+                    text,
+                    startTime,
+                    endTime,
+                    x,
+                    y,
+                    fontSize,
+                    color,
+                    bgColor,
+                    bgOpacity
+                } = overlay;
 
-            // Use provided font size and color, or fallback to defaults
-            const fontSize = textSize || 24;
-            const fontWeight = textWeight || 400;
-            const color = textColor?.replace('#', '0x') || 'white';
+                // Convert percentage positions to expressions that calculate pixel positions
+                const xPos = x ? `(w-text_w)*${parseInt(x) / 100}` : '(w-text_w)/2';
+                const yPos = y ? `(h-text_h)*${parseInt(y) / 100}` : '(h-text_h)/2';
 
-            // Handle background color and opacity
-            const bgColor = textBgColor?.replace('#', '0x') || '000000';
-            const bgOpacity = textBgOpacity ? parseInt(textBgOpacity) / 100 : 0.5;
+                // Build the drawtext filter with all options
+                return [
+                    `drawtext=text='${text.replace(/'/g, "'\\\\\\''")}'`,
+                    `fontcolor=${color?.replace('#', '0x') || 'white'}`,
+                    `fontsize=${fontSize || 24}`,
+                    `x=${xPos}`,
+                    `y=${yPos}`,
+                    `fontfile=/System/Library/Fonts/Supplemental/Bangla\ MN.ttc`,
+                    'box=1',
+                    `boxcolor=${bgColor?.replace('#', '0x') || '000000'}@${(parseInt(bgOpacity) || 50) / 100}`,
+                    'boxborderw=5',
+                    `enable='between(t,${parseFloat(startTime) || 0},${parseFloat(endTime) || originalVideo.durationMs / 1000})'`
+                ].join(':');
+            });
 
-            // Build the drawtext filter with all options
-            const drawTextFilter = [
-                // Escape Unicode text for FFmpeg
-                `drawtext=text='${textOverlay.replace(/'/g, "'\\\\\\''")}'`,
-                `fontcolor=${color}`,
-                `fontsize=${fontSize}`,
-                `x=${xPos}`,
-                `y=${yPos}`,
-                // Use a font that supports Bengali characters
-                `fontfile=/System/Library/Fonts/Supplemental/Bangla\ MN.ttc`,
-                // Add box around text for background
-                'box=1',
-                `boxcolor=${bgColor}@${bgOpacity}`,
-                'boxborderw=5' // Add some padding around the text
-            ].join(':');
-
-            console.log('Using drawtext filter:', drawTextFilter);
-
-            command.videoFilter(drawTextFilter);
+            // Apply all text filters
+            if (textFilters.length > 0) {
+                command.videoFilter(textFilters.join(','));
+            }
         }
 
         // Execute FFmpeg with better error handling
@@ -237,6 +252,9 @@ exports.processVideo = async (req, res) => {
                 .run();
         });
 
+        // Generate thumbnail
+        await generateThumbnail(outputPath, thumbnailPath);
+
         // Verify output file
         const stats = await fs.stat(outputPath);
         if (stats.size === 0) {
@@ -244,22 +262,34 @@ exports.processVideo = async (req, res) => {
         }
 
         // Save to database
-        const editParams = { trimStart, trimEnd, cropWidth, cropHeight, cropX, cropY, textOverlay };
+        const editParams = {
+            trim: trimStart || trimEnd ? {
+                start: trimStart,
+                end: trimEnd
+            } : null,
+            crop: cropWidth && cropHeight ? {
+                width: cropWidth,
+                height: cropHeight,
+                x: cropX || 0,
+                y: cropY || 0
+            } : null,
+            textOverlays: textOverlays || []
+        };
+
+        // Always create a new record
         await new Promise((resolve, reject) => {
-            if (isEdited === 'true') {
-                VideoEditor.updateEditedVideo(videoId, pageId, relativePath, editParams, (err) => {
-                    if (err) reject(err);
-                    resolve();
-                });
-            } else {
-                VideoEditor.saveEditedVideo(videoId, pageId, relativePath, editParams, (err) => {
-                    if (err) reject(err);
-                    resolve();
-                });
-            }
+            VideoEditor.saveEditedVideo(videoId, pageId, relativePath, relativeThumbnailPath, editParams, (err) => {
+                if (err) reject(err);
+                resolve();
+            });
         });
 
-        res.json({ success: true, editedFile: relativePath });
+        res.json({
+            success: true,
+            editedFile: relativePath,
+            thumbnail: relativeThumbnailPath,
+            timestamp: timestamp
+        });
     } catch (err) {
         console.error('Error processing video:', err);
         res.status(500).json({ success: false, error: err.message });
@@ -321,11 +351,11 @@ exports.getVideoById = async (req, res) => {
 // Render editor panel template
 exports.getEditorPanel = async (req, res) => {
     const { videoId } = req.params;
-    const { pageId, isEdited } = req.query;
+    const { pageId, isEdited, sourceFile } = req.query;
     try {
         const videos = await new Promise((resolve, reject) => {
             if (isEdited === 'true') {
-                VideoEditor.getEditedVideosByPageId(pageId, (err, videos) => {
+                VideoEditor.getEditedVideosByPageId(pageId, videoId, (err, videos) => {
                     if (err) reject(err);
                     resolve(videos);
                 });
@@ -342,8 +372,8 @@ exports.getEditorPanel = async (req, res) => {
             throw new Error('Video not found');
         }
 
-        // Get the appropriate file path
-        const filePath = isEdited === 'true' ? video.edited_file : video.downloadedFile;
+        // Use provided source file or default to original file
+        const filePath = sourceFile || (isEdited === 'true' ? video.edited_file : video.downloadedFile);
         if (!filePath) {
             throw new Error('Video file path not found');
         }
@@ -357,13 +387,52 @@ exports.getEditorPanel = async (req, res) => {
         res.render('pages/video_editor/editorPanel', {
             videoId: isEdited === 'true' ? video.video_id : video.id,
             title: video.title || (isEdited === 'true' ? 'Edited Video' : 'No Title'),
-            downloadedFile: relativePath,
+            downloadedFile: video.downloadedFile,
+            sourceFile: relativePath,
             pageId,
-            isEdited: isEdited === 'true',
             layout: false
         });
     } catch (err) {
         console.error('Error rendering editor panel:', err);
         res.status(500).json({ success: false, error: `Failed to render editor panel: ${err.message}` });
+    }
+};
+
+// Get edit history for a video
+exports.getEditHistory = async (req, res) => {
+    const { videoId } = req.params;
+    const { pageId } = req.query;
+
+    try {
+        // Get edited video details
+        const editedVideos = await new Promise((resolve, reject) => {
+            VideoEditor.getEditedVideosByPageId(pageId, videoId, (err, videos) => {
+                if (err) reject(err);
+                resolve(videos);
+            });
+        });
+
+        // Find the specific edited video
+        const editedVideo = editedVideos[0]; // Get the first (and should be only) result
+
+        if (!editedVideo) {
+            return res.status(404).json({
+                success: false,
+                error: 'No edit history found for this video'
+            });
+        }
+
+        // Return the edit parameters
+        res.json({
+            success: true,
+            edit_params: editedVideo.edit_params,
+            edited_file: editedVideo.edited_file
+        });
+    } catch (err) {
+        console.error('Error fetching edit history:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch edit history'
+        });
     }
 };

@@ -45,12 +45,14 @@ const getVideosByPageId = (pageId, callback) => {
 };
 
 // Save edited video
-const saveEditedVideo = (videoId, pageId, editedFile, editParams, callback) => {
+const saveEditedVideo = (videoId, pageId, editedFile, thumbnail, editParams, callback) => {
+    // Always insert a new record for each edit
     const stmt = db.prepare(`
-        INSERT INTO edited_videos (video_id, page_id, edited_file, edit_params)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO edited_videos (video_id, page_id, edited_file, thumbnail, edit_params, created_at)
+        VALUES (?, ?, ?, ?, ?, datetime('now'))
     `);
-    stmt.run(videoId, pageId, editedFile, JSON.stringify(editParams), (err) => {
+
+    stmt.run(videoId, pageId, editedFile, thumbnail, JSON.stringify(editParams), (err) => {
         if (err) {
             console.error('Error saving edited video:', err);
             return callback(err);
@@ -61,42 +63,66 @@ const saveEditedVideo = (videoId, pageId, editedFile, editParams, callback) => {
 };
 
 // Get edited videos by page_id
-const getEditedVideosByPageId = (pageId, callback) => {
-    db.all(`
-        SELECT ev.*, v.downloadedFile AS originalFile
+const getEditedVideosByPageId = (pageId, videoId = null, callback) => {
+    // Handle case where videoId is the callback (backwards compatibility)
+    if (typeof videoId === 'function') {
+        callback = videoId;
+        videoId = null;
+    }
+
+    // Ensure callback is a function
+    if (typeof callback !== 'function') {
+        console.error('Callback not provided to getEditedVideosByPageId');
+        return;
+    }
+
+    let query = `
+        SELECT ev.*, v.downloadedFile AS originalFile, v.title,
+               datetime(ev.created_at) as created_at
         FROM edited_videos ev
         JOIN videos v ON ev.video_id = v.id
         WHERE ev.page_id = ?
-    `, [pageId], (err, rows) => {
+        ${videoId ? 'AND ev.video_id = ?' : ''}
+        ORDER BY ev.created_at DESC
+    `;
+    let params = videoId ? [pageId, videoId] : [pageId];
+
+    db.all(query, params, (err, rows) => {
         if (err) {
             console.error('Error retrieving edited videos:', err);
             return callback(err);
         }
-        callback(null, rows);
-    });
-};
 
-// Update existing edited video
-const updateEditedVideo = (videoId, pageId, editedFile, editParams, callback) => {
-    const stmt = db.prepare(`
-        UPDATE edited_videos 
-        SET edited_file = ?, edit_params = ?
-        WHERE video_id = ? AND page_id = ?
-    `);
-    stmt.run(editedFile, JSON.stringify(editParams), videoId, pageId, (err) => {
-        if (err) {
-            console.error('Error updating edited video:', err);
-            return callback(err);
-        }
-        callback(null);
+        // Parse edit_params JSON for each row
+        const processedRows = rows.map(row => {
+            try {
+                if (row.edit_params) {
+                    row.edit_params = JSON.parse(row.edit_params);
+                } else {
+                    row.edit_params = {
+                        trim: null,
+                        crop: null,
+                        textOverlays: []
+                    };
+                }
+            } catch (parseErr) {
+                console.error('Error parsing edit_params:', parseErr);
+                row.edit_params = {
+                    trim: null,
+                    crop: null,
+                    textOverlays: []
+                };
+            }
+            return row;
+        });
+
+        callback(null, processedRows);
     });
-    stmt.finalize();
 };
 
 module.exports = {
     getAllPages,
     getVideosByPageId,
     saveEditedVideo,
-    getEditedVideosByPageId,
-    updateEditedVideo
+    getEditedVideosByPageId
 };
