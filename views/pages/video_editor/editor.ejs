@@ -483,10 +483,33 @@
                     if (result.success) {
                         // Show completion
                         updateProgress(100, 'Processing complete!', 'Your video has been processed successfully.');
-                        await new Promise(resolve => setTimeout(resolve, 1000));
 
-                        // Refresh video list
-                        pageSelect.dispatchEvent(new Event('change'));
+                        // Update video player source to show the newly edited video
+                        const videoPlayer = document.getElementById('videoPlayer');
+                        if (videoPlayer) {
+                            videoPlayer.src = `/${result.editedFile}`;
+                            videoPlayer.load(); // Reload the video with new source
+                        }
+
+                        // Update hidden input for source file
+                        const sourceFileInput = document.querySelector('input[name="sourceFile"]');
+                        if (sourceFileInput) {
+                            sourceFileInput.value = result.editedFile;
+                        }
+
+                        // Update video ID
+                        const videoIdInput = document.querySelector('input[name="videoId"]');
+                        if (videoIdInput) {
+                            videoIdInput.value = result.videoId;
+                        }
+
+                        // Reset form values
+                        document.getElementById('trimStart').value = '';
+                        document.getElementById('trimEnd').value = '';
+                        document.getElementById('cropWidth').value = '';
+                        document.getElementById('cropHeight').value = '';
+                        document.getElementById('cropX').value = '';
+                        document.getElementById('cropY').value = '';
 
                         // Show success message
                         const successMessage = document.createElement('div');
@@ -494,6 +517,58 @@
                         successMessage.textContent = 'Video processed successfully!';
                         document.body.appendChild(successMessage);
                         setTimeout(() => successMessage.remove(), 3000);
+
+                        // Hide progress overlay after a short delay
+                        setTimeout(() => {
+                            showProgress(false);
+                        }, 1000);
+
+                        // Refresh the edited videos list
+                        if (pageSelect.value) {
+                            fetch(`/video_editor/videos/${pageSelect.value}`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success && editedVideos) {
+                                        // Update edited videos list
+                                        editedVideos.innerHTML = data.editedVideos.map(video => `
+                                            <div class="flex items-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 video-item"
+                                                data-video-id="${video.video_id}"
+                                                data-file="${video.edited_file}"
+                                                data-is-edited="true">
+                                                ${video.thumbnail ? `
+                                                    <img src="/${video.thumbnail}" alt="Thumbnail" 
+                                                        class="w-16 h-16 object-cover rounded-lg shadow-sm">
+                                                ` : `
+                                                    <div class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
+                                                        <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                        </svg>
+                                                    </div>
+                                                `}
+                                                <div class="ml-3 flex-1">
+                                                    <p class="text-sm font-medium text-gray-800">${video.edited_file.split('/').pop()}</p>
+                                                    <p class="text-xs text-gray-500">${new Date(video.created_at).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                        `).join('');
+
+                                        // Reattach click handlers
+                                        document.querySelectorAll('.video-item').forEach(item => {
+                                            item.addEventListener('click', () => handleVideoSelection(item));
+                                        });
+
+                                        // Select the newly added video
+                                        const newVideo = document.querySelector(`[data-file="${result.editedFile}"]`);
+                                        if (newVideo) {
+                                            newVideo.classList.add('selected');
+                                        }
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error refreshing videos:', error);
+                                });
+                        }
                     } else {
                         throw new Error(result.error || 'Failed to process video');
                     }

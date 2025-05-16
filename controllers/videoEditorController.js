@@ -276,11 +276,11 @@ exports.processVideo = async (req, res) => {
             textOverlays: textOverlays || []
         };
 
-        // Always create a new record
-        await new Promise((resolve, reject) => {
-            VideoEditor.saveEditedVideo(videoId, pageId, relativePath, relativeThumbnailPath, editParams, (err) => {
+        // Save to database and get the ID
+        const savedId = await new Promise((resolve, reject) => {
+            VideoEditor.saveEditedVideo(videoId, pageId, relativePath, relativeThumbnailPath, editParams, (err, id) => {
                 if (err) reject(err);
-                resolve();
+                resolve(id);
             });
         });
 
@@ -288,7 +288,8 @@ exports.processVideo = async (req, res) => {
             success: true,
             editedFile: relativePath,
             thumbnail: relativeThumbnailPath,
-            timestamp: timestamp
+            timestamp: timestamp,
+            videoId: savedId // Include the saved video ID in the response
         });
     } catch (err) {
         console.error('Error processing video:', err);

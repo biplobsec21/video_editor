@@ -52,12 +52,12 @@ const saveEditedVideo = (videoId, pageId, editedFile, thumbnail, editParams, cal
         VALUES (?, ?, ?, ?, ?, datetime('now'))
     `);
 
-    stmt.run(videoId, pageId, editedFile, thumbnail, JSON.stringify(editParams), (err) => {
+    stmt.run(videoId, pageId, editedFile, thumbnail, JSON.stringify(editParams), function (err) {
         if (err) {
             console.error('Error saving edited video:', err);
             return callback(err);
         }
-        callback(null, this.lastID);
+        callback(null, this.lastID); // Return the ID of the newly inserted record
     });
     stmt.finalize();
 };
