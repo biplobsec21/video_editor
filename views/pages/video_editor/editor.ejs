@@ -29,10 +29,10 @@
     }
 </style>
 
-<div class="container mx-auto p-4">
+<div class="p-4 w-full">
     <div class="flex gap-6">
         <!-- Left Sidebar - Media Library -->
-        <div class="w-1/4 space-y-6">
+        <div class="w-1/5 space-y-6">
             <!-- Page Selection Card -->
             <div class="bg-white rounded-lg shadow-lg p-4">
                 <h2 class="text-xl font-semibold mb-4 text-gray-800">Media Library</h2>
@@ -105,7 +105,7 @@
         </div>
 
         <!-- Main Editor Area -->
-        <div class="w-3/4 bg-white rounded-lg shadow-lg" id="editorPanel">
+        <div class="w-4/5 bg-white rounded-lg shadow-lg" id="editorPanel">
             <div class="text-center py-20">
                 <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -151,6 +151,52 @@
             }
 
             console.log('Editor panel initialized');
+
+            // Initialize collapsible sections
+            function toggleSection(sectionId) {
+                const section = document.getElementById(sectionId);
+                const icon = document.getElementById(sectionId + 'Icon');
+                if (!section || !icon) return;
+
+                const isExpanded = section.style.maxHeight !== '0px' && section.style.maxHeight !== '';
+
+                // Toggle the section
+                if (isExpanded) {
+                    section.style.maxHeight = '0px';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    section.style.maxHeight = section.scrollHeight + 'px';
+                    icon.style.transform = 'rotate(180deg)';
+                }
+            }
+
+            // Add click handlers for collapsible sections
+            document.querySelectorAll('[onclick^="toggleSection"]').forEach(header => {
+                const sectionId = header.getAttribute('onclick').match(/'([^']+)'/)[1];
+                header.onclick = () => toggleSection(sectionId);
+            });
+
+            // Initialize sections
+            ['trimControls', 'cropControls', 'textOverlayControls'].forEach(sectionId => {
+                const section = document.getElementById(sectionId);
+                if (section) {
+                    section.style.maxHeight = '0px';
+                }
+            });
+
+            // Open Trim Controls by default
+            setTimeout(() => toggleSection('trimControls'), 100);
+
+            // Update maxHeight when content changes (for text overlay advanced mode)
+            const advancedModeToggle = document.getElementById('advancedMode');
+            if (advancedModeToggle) {
+                advancedModeToggle.addEventListener('change', function () {
+                    const textOverlayControls = document.getElementById('textOverlayControls');
+                    if (textOverlayControls && textOverlayControls.style.maxHeight !== '0px') {
+                        textOverlayControls.style.maxHeight = textOverlayControls.scrollHeight + 'px';
+                    }
+                });
+            }
 
             // Show/hide progress overlay
             function showProgress(show = true) {
@@ -304,7 +350,6 @@
             const textOverlaysContainer = document.getElementById('textOverlaysContainer');
             const textOverlayTemplate = document.getElementById('textOverlayTemplate');
             const addTextOverlayBtn = document.getElementById('addTextOverlay');
-            const advancedModeToggle = document.getElementById('advancedMode');
             const simpleModeDiv = document.getElementById('simpleMode');
             const advancedModeDiv = document.getElementById('advancedModeContainer');
 

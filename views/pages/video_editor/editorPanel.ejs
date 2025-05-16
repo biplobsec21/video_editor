@@ -39,10 +39,13 @@
         <div class="w-3/5 space-y-4">
             <!-- Video Player Card -->
             <div class="bg-gray-900 rounded-lg p-4 shadow-lg">
-                <video id="videoPlayer" controls class="w-full aspect-video rounded-lg"
-                    src="/<%= sourceFile || downloadedFile %>">
-                    Your browser does not support the video tag.
-                </video>
+                <div class="relative" style="padding-top: 66.25%;">
+                    <video id="videoPlayer" controls
+                        class="absolute inset-0 w-full h-full rounded-lg object-contain bg-black"
+                        src="/<%= sourceFile || downloadedFile %>">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
             </div>
 
             <!-- Video Information Card -->
@@ -62,18 +65,27 @@
         </div>
 
         <!-- Right Section - Editor Controls -->
-        <div class="w-2/5">
+        <div class="w-2/5 space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
             <form id="editForm" class="space-y-4">
                 <!-- Trim Controls Card -->
                 <div class="bg-white rounded-lg p-4 shadow-lg">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center justify-between cursor-pointer"
+                        onclick="toggleSection('trimControls')">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            Trim Video
+                        </div>
+                        <svg class="w-5 h-5 transform transition-transform duration-200" id="trimControlsIcon"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
-                        Trim Video
                     </h3>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div id="trimControls" class="grid grid-cols-2 gap-4 transition-all duration-300 overflow-hidden"
+                        style="max-height: 0;">
                         <div>
                             <label for="trimStart" class="block text-sm font-medium text-gray-700 mb-1">Start Time
                                 (s)</label>
@@ -103,14 +115,23 @@
 
                 <!-- Crop Controls Card -->
                 <div class="bg-white rounded-lg p-4 shadow-lg">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center justify-between cursor-pointer"
+                        onclick="toggleSection('cropControls')">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Crop Video
+                        </div>
+                        <svg class="w-5 h-5 transform transition-transform duration-200" id="cropControlsIcon"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
-                        Crop Video
                     </h3>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div id="cropControls" class="grid grid-cols-2 gap-4 transition-all duration-300 overflow-hidden"
+                        style="max-height: 0;">
                         <div>
                             <label for="cropWidth" class="block text-sm font-medium text-gray-700 mb-1">Width</label>
                             <input type="number" id="cropWidth" name="cropWidth" min="0"
@@ -136,7 +157,8 @@
 
                 <!-- Text Overlay Card -->
                 <div class="bg-white rounded-lg p-4 shadow-lg">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center justify-between cursor-pointer"
+                        onclick="toggleSection('textOverlayControls')">
                         <div class="flex items-center">
                             <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor"
                                 viewBox="0 0 24 24">
@@ -153,166 +175,79 @@
                                 </div>
                                 <span class="ml-3 text-sm font-medium text-gray-700">Advanced Mode</span>
                             </label>
-                            <button type="button" id="addTextOverlay"
-                                class="hidden px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-sm flex items-center">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add Text
-                            </button>
+                            <svg class="w-5 h-5 transform transition-transform duration-200"
+                                id="textOverlayControlsIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 9l-7 7-7-7" />
+                            </svg>
                         </div>
                     </h3>
-
-                    <!-- Simple Mode (Default) -->
-                    <div id="simpleMode" class="space-y-4">
-                        <div>
-                            <label for="simpleText" class="block text-sm font-medium text-gray-700 mb-1">Text
-                                Content</label>
-                            <input type="text" id="simpleText" name="simpleText"
-                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                placeholder="Enter text to overlay">
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
+                    <div id="textOverlayControls" class="transition-all duration-300 overflow-hidden"
+                        style="max-height: 0;">
+                        <!-- Simple Mode -->
+                        <div id="simpleMode" class="space-y-4">
                             <div>
-                                <label for="simpleX" class="block text-sm font-medium text-gray-700 mb-1">X Position
-                                    (%)</label>
-                                <input type="number" id="simpleX" name="simpleX" min="0" max="100" value="50"
-                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <label for="simpleText" class="block text-sm font-medium text-gray-700 mb-1">Text
+                                    Content</label>
+                                <input type="text" id="simpleText" name="simpleText"
+                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    placeholder="Enter text to overlay">
                             </div>
-                            <div>
-                                <label for="simpleY" class="block text-sm font-medium text-gray-700 mb-1">Y Position
-                                    (%)</label>
-                                <input type="number" id="simpleY" name="simpleY" min="0" max="100" value="50"
-                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            </div>
-                        </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="simpleFontSize" class="block text-sm font-medium text-gray-700 mb-1">Font
-                                    Size</label>
-                                <input type="number" id="simpleFontSize" name="simpleFontSize" min="12" max="72"
-                                    value="24"
-                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="simpleX" class="block text-sm font-medium text-gray-700 mb-1">X Position
+                                        (%)</label>
+                                    <input type="number" id="simpleX" name="simpleX" min="0" max="100" value="50"
+                                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label for="simpleY" class="block text-sm font-medium text-gray-700 mb-1">Y Position
+                                        (%)</label>
+                                    <input type="number" id="simpleY" name="simpleY" min="0" max="100" value="50"
+                                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
                             </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="simpleFontSize"
+                                        class="block text-sm font-medium text-gray-700 mb-1">Font
+                                        Size</label>
+                                    <input type="number" id="simpleFontSize" name="simpleFontSize" min="12" max="72"
+                                        value="24"
+                                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label for="simpleColor" class="block text-sm font-medium text-gray-700 mb-1">Text
+                                        Color</label>
+                                    <input type="color" id="simpleColor" name="simpleColor" value="#ffffff"
+                                        class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                            </div>
+
                             <div>
-                                <label for="simpleColor" class="block text-sm font-medium text-gray-700 mb-1">Text
+                                <label for="simpleBgColor"
+                                    class="block text-sm font-medium text-gray-700 mb-1">Background
                                     Color</label>
-                                <input type="color" id="simpleColor" name="simpleColor" value="#ffffff"
-                                    class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <div class="flex gap-2">
+                                    <input type="color" id="simpleBgColor" name="simpleBgColor" value="#000000"
+                                        class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <input type="number" id="simpleBgOpacity" name="simpleBgOpacity" min="0" max="100"
+                                        value="50"
+                                        class="w-20 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        title="Background Opacity %">
+                                </div>
                             </div>
                         </div>
 
-                        <div>
-                            <label for="simpleBgColor" class="block text-sm font-medium text-gray-700 mb-1">Background
-                                Color</label>
-                            <div class="flex gap-2">
-                                <input type="color" id="simpleBgColor" name="simpleBgColor" value="#000000"
-                                    class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <input type="number" id="simpleBgOpacity" name="simpleBgOpacity" min="0" max="100"
-                                    value="50"
-                                    class="w-20 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                    title="Background Opacity %">
+                        <!-- Advanced Mode -->
+                        <div id="advancedModeContainer" class="hidden space-y-6">
+                            <div id="textOverlaysContainer" class="space-y-6">
+                                <!-- Template will be inserted here -->
                             </div>
                         </div>
                     </div>
-
-                    <!-- Advanced Mode (Multiple Timed Text) -->
-                    <div id="advancedModeContainer" class="hidden space-y-6">
-                        <div id="textOverlaysContainer" class="space-y-6">
-                            <!-- Template will be inserted here -->
-                        </div>
-                    </div>
-
-                    <!-- Template for text overlay entry -->
-                    <template id="textOverlayTemplate">
-                        <div class="text-overlay-entry border rounded-lg p-4 bg-gray-50 relative">
-                            <button type="button"
-                                class="remove-text-overlay absolute top-2 right-2 text-gray-400 hover:text-red-500">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Text Content</label>
-                                    <input type="text" name="textOverlays[][text]"
-                                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        placeholder="Enter text to overlay">
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Start Time
-                                            (s)</label>
-                                        <div class="relative">
-                                            <input type="number" name="textOverlays[][startTime]" min="0" step="0.1"
-                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-16">
-                                            <button type="button"
-                                                class="set-text-start absolute right-0 top-0 h-full px-3 bg-gray-50 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-r-lg border-l">
-                                                Set
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">End Time (s)</label>
-                                        <div class="relative">
-                                            <input type="number" name="textOverlays[][endTime]" min="0" step="0.1"
-                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-16">
-                                            <button type="button"
-                                                class="set-text-end absolute right-0 top-0 h-full px-3 bg-gray-50 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-r-lg border-l">
-                                                Set
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">X Position
-                                            (%)</label>
-                                        <input type="number" name="textOverlays[][x]" min="0" max="100" value="50"
-                                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Y Position
-                                            (%)</label>
-                                        <input type="number" name="textOverlays[][y]" min="0" max="100" value="50"
-                                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Font Size</label>
-                                        <input type="number" name="textOverlays[][fontSize]" min="12" max="72"
-                                            value="24"
-                                            class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Text Color</label>
-                                        <input type="color" name="textOverlays[][color]" value="#ffffff"
-                                            class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Background Color</label>
-                                    <div class="flex gap-2">
-                                        <input type="color" name="textOverlays[][bgColor]" value="#000000"
-                                            class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                        <input type="number" name="textOverlays[][bgOpacity]" min="0" max="100"
-                                            value="50"
-                                            class="w-20 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            title="Background Opacity %">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
                 </div>
 
                 <input type="hidden" name="videoId" value="<%= videoId %>">
