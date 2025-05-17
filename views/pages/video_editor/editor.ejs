@@ -117,8 +117,33 @@
     </div>
 </div>
 
+<!-- Add audio preview script -->
+<script>
+    // Check if Web Audio API is supported
+    if (window.AudioContext || window.webkitAudioContext) {
+        console.log('Web Audio API is supported');
+    } else {
+        console.warn('Web Audio API is not supported in this browser');
+    }
+</script>
+<script src="/js/audioPreview.js"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Debug logging for audio preview initialization
+        console.log('DOM Content Loaded');
+        const videoPlayer = document.getElementById('videoPlayer');
+        if (videoPlayer) {
+            console.log('Video player found:', videoPlayer);
+            try {
+                window.audioPreview = new AudioPreview(videoPlayer);
+                console.log('Audio preview initialized successfully');
+            } catch (error) {
+                console.error('Error initializing audio preview:', error);
+            }
+        } else {
+            console.error('Video player element not found');
+        }
         const pageSelect = document.getElementById('pageSelect');
         const videoLibrary = document.getElementById('videoLibrary');
         const editedVideos = document.getElementById('editedVideos');
@@ -143,29 +168,323 @@
             const setTrimEndBtn = document.getElementById('setTrimEndBtn');
             const setTextStartBtn = document.getElementById('setTextStartBtn');
             const setTextEndBtn = document.getElementById('setTextEndBtn');
+            const setZoomStartBtn = document.getElementById('setZoomStartBtn');
+            const audioEffectType = document.getElementById('audioEffectType');
             let processingStartTime;
 
-            if (!form) {
-                console.error('Edit form not found after loading editor panel');
-                return;
+            // Audio Effects Controls
+            const audioControlSections = [
+                'audioNormalizeControls',
+                'audioFadeControls',
+                'equalizerControls',
+                'reverbControls',
+                'compressionControls',
+                'noiseReductionControls',
+                'pitchControls',
+                'tempoControls'
+            ];
+
+            // Handle audio effect type changes
+            if (audioEffectType) {
+                audioEffectType.addEventListener('change', function () {
+                    // Hide all control sections
+                    audioControlSections.forEach(sectionId => {
+                        const section = document.getElementById(sectionId);
+                        if (section) {
+                            section.classList.add('hidden');
+                        }
+                    });
+
+                    // Show selected effect controls
+                    const selectedEffect = this.value;
+                    if (selectedEffect) {
+                        const controlSection = document.getElementById(selectedEffect + 'Controls');
+                        if (controlSection) {
+                            controlSection.classList.remove('hidden');
+                        }
+                    }
+                });
             }
 
-            console.log('Editor panel initialized');
+            // Initialize range input value displays
+            const rangeInputs = ['eqLow', 'eqMid', 'eqHigh', 'reverbMix', 'nrStrength'];
+            rangeInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                const valueDisplay = document.getElementById(inputId + 'Value');
+                if (input && valueDisplay) {
+                    input.addEventListener('input', function () {
+                        let displayValue = this.value;
+                        if (inputId.startsWith('eq')) {
+                            displayValue += ' dB';
+                        } else if (inputId === 'reverbMix' || inputId === 'nrStrength') {
+                            displayValue += '%';
+                        }
+                        valueDisplay.textContent = displayValue;
+                    });
+                }
+            });
+
+            // Form submission handler
+            if (form) {
+                const originalSubmitHandler = form.onsubmit;
+                form.onsubmit = async function (e) {
+                    e.preventDefault();
+
+                    const formData = new FormData(form);
+                    const data = {};
+
+                    // Add audio effect parameters
+                    const audioEffect = audioEffectType?.value;
+                    if (audioEffect) {
+                        data.audioEffect = {
+                            type: audioEffect,
+                            params: {}
+                        };
+
+                        switch (audioEffect) {
+                            case 'normalize':
+                                data.audioEffect.params.level = document.getElementById('normalizeLevel')?.value;
+                                break;
+                            case 'fadeInOut':
+                                data.audioEffect.params.fadeIn = document.getElementById('fadeInDuration')?.value;
+                                data.audioEffect.params.fadeOut = document.getElementById('fadeOutDuration')?.value;
+                                break;
+                            case 'equalizer':
+                                data.audioEffect.params.low = document.getElementById('eqLow')?.value;
+                                data.audioEffect.params.mid = document.getElementById('eqMid')?.value;
+                                data.audioEffect.params.high = document.getElementById('eqHigh')?.value;
+                                break;
+                            case 'reverb':
+                                data.audioEffect.params.mix = document.getElementById('reverbMix')?.value;
+                                data.audioEffect.params.room = document.getElementById('reverbRoom')?.value;
+                                break;
+                            case 'compression':
+                                data.audioEffect.params.threshold = document.getElementById('compThreshold')?.value;
+                                data.audioEffect.params.ratio = document.getElementById('compRatio')?.value;
+                                break;
+                            case 'noise_reduction':
+                                data.audioEffect.params.strength = document.getElementById('nrStrength')?.value;
+                                break;
+                            case 'pitch':
+                                data.audioEffect.params.shift = document.getElementById('pitchShift')?.value;
+                                break;
+                            case 'tempo':
+                                data.audioEffect.params.factor = document.getElementById('tempoFactor')?.value;
+                                break;
+                        }
+                    }
+
+                    // Merge with existing form data
+                    formData.forEach((value, key) => {
+                        if (!key.startsWith('audio')) {
+                            data[key] = value;
+                        }
+                    });
+
+                    // Process form submission
+                    try {
+                        // Disable submit button and show progress
+                        if (submitButton) {
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = `
+                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Processing...
+                            `;
+                        }
+
+                        showProgress(true);
+                        updateProgress(0, 'Starting process...', 'Preparing your video');
+                        startProgressSimulation();
+
+                        // Send AJAX request
+                        const response = await fetch('/video_editor/process', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(data)
+                        });
+
+                        console.log('Response status:', response.status);
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`HTTP error: ${response.status} - ${errorText}`);
+                        }
+
+                        const result = await response.json();
+                        console.log('Response result:', result);
+
+                        if (result.success) {
+                            // Show completion
+                            updateProgress(100, 'Processing complete!', 'Your video has been processed successfully.');
+
+                            // Update video player source to show the newly edited video
+                            const videoPlayer = document.getElementById('videoPlayer');
+                            if (videoPlayer) {
+                                videoPlayer.src = `/${result.editedFile}`;
+                                videoPlayer.load(); // Reload the video with new source
+                            }
+
+                            // Update hidden input for source file
+                            const sourceFileInput = document.querySelector('input[name="sourceFile"]');
+                            if (sourceFileInput) {
+                                sourceFileInput.value = result.editedFile;
+                            }
+
+                            // Update video ID
+                            const videoIdInput = document.querySelector('input[name="videoId"]');
+                            if (videoIdInput) {
+                                videoIdInput.value = result.videoId;
+                            }
+
+                            // Reset form values
+                            document.getElementById('trimStart').value = '';
+                            document.getElementById('trimEnd').value = '';
+                            document.getElementById('cropWidth').value = '';
+                            document.getElementById('cropHeight').value = '';
+                            document.getElementById('cropX').value = '';
+                            document.getElementById('cropY').value = '';
+
+                            // Show success message
+                            const successMessage = document.createElement('div');
+                            successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+                            successMessage.textContent = 'Video processed successfully!';
+                            document.body.appendChild(successMessage);
+                            setTimeout(() => successMessage.remove(), 3000);
+
+                            // Hide progress overlay after a short delay
+                            setTimeout(() => {
+                                showProgress(false);
+                            }, 1000);
+
+                            // Refresh the edited videos list
+                            if (pageSelect.value) {
+                                fetch(`/video_editor/videos/${pageSelect.value}`)
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success && editedVideos) {
+                                            // Update edited videos list
+                                            editedVideos.innerHTML = data.editedVideos.map(video => `
+                                                <div class="flex items-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 video-item"
+                                                    data-video-id="${video.video_id}"
+                                                    data-file="${video.edited_file}"
+                                                    data-is-edited="true">
+                                                    ${video.thumbnail ? `
+                                                        <img src="/${video.thumbnail}" alt="Thumbnail" 
+                                                            class="w-16 h-16 object-cover rounded-lg shadow-sm">
+                                                    ` : `
+                                                        <div class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
+                                                            <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                            </svg>
+                                                        </div>
+                                                    `}
+                                                    <div class="ml-3 flex-1">
+                                                        <p class="text-sm font-medium text-gray-800">${video.edited_file.split('/').pop()}</p>
+                                                        <p class="text-xs text-gray-500">${new Date(video.created_at).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                            `).join('');
+
+                                            // Reattach click handlers
+                                            document.querySelectorAll('.video-item').forEach(item => {
+                                                item.addEventListener('click', () => handleVideoSelection(item));
+                                            });
+
+                                            // Select the newly added video
+                                            const newVideo = document.querySelector(`[data-file="${result.editedFile}"]`);
+                                            if (newVideo) {
+                                                newVideo.classList.add('selected');
+                                            }
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error refreshing videos:', error);
+                                    });
+                            }
+                        } else {
+                            throw new Error(result.error || 'Failed to process video');
+                        }
+                    } catch (error) {
+                        console.error('Submission error:', error);
+                        updateProgress(0, 'Error occurred', error.message);
+
+                        // Show error message
+                        const errorMessage = document.createElement('div');
+                        errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+                        errorMessage.textContent = `Error: ${error.message}`;
+                        document.body.appendChild(errorMessage);
+                        setTimeout(() => errorMessage.remove(), 5000);
+                    } finally {
+                        // Reset submit button and hide progress
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.innerHTML = `
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                Apply Changes
+                            `;
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        showProgress(false);
+                    }
+                };
+            }
 
             // Initialize collapsible sections
             function toggleSection(sectionId) {
                 const section = document.getElementById(sectionId);
                 const icon = document.getElementById(sectionId + 'Icon');
-                if (!section || !icon) return;
+                if (!section || !icon) {
+                    console.error('Section or icon not found:', sectionId);
+                    return;
+                }
+
+                console.log('Toggling section:', sectionId);
 
                 const isExpanded = section.style.maxHeight !== '0px' && section.style.maxHeight !== '';
+                console.log('Current state:', { isExpanded, currentMaxHeight: section.style.maxHeight });
 
                 // Toggle the section
                 if (isExpanded) {
+                    // Collapse
                     section.style.maxHeight = '0px';
                     icon.style.transform = 'rotate(0deg)';
+                    console.log('Collapsing section');
                 } else {
-                    section.style.maxHeight = section.scrollHeight + 'px';
+                    // Expand
+                    const content = section.querySelector('.audio-effects-content, .effect-controls-container');
+                    if (content) {
+                        // For sections with nested content, calculate total height including all visible elements
+                        let totalHeight = content.scrollHeight;
+
+                        // If this is the audio effects section, include the preview controls height
+                        if (sectionId === 'audioEffectsControls') {
+                            const previewControls = section.querySelector('.preview-controls');
+                            if (previewControls) {
+                                totalHeight += previewControls.scrollHeight;
+                            }
+
+                            // Include visible effect controls
+                            const visibleEffectControls = content.querySelector('.effect-controls-container > div:not(.hidden)');
+                            if (visibleEffectControls) {
+                                totalHeight += visibleEffectControls.scrollHeight;
+                            }
+                        }
+
+                        section.style.maxHeight = `${totalHeight}px`;
+                        console.log('Expanding section with content, height:', totalHeight);
+                    } else {
+                        // For simple sections
+                        section.style.maxHeight = `${section.scrollHeight}px`;
+                        console.log('Expanding simple section, height:', section.scrollHeight);
+                    }
                     icon.style.transform = 'rotate(180deg)';
                 }
             }
@@ -173,19 +492,81 @@
             // Add click handlers for collapsible sections
             document.querySelectorAll('[onclick^="toggleSection"]').forEach(header => {
                 const sectionId = header.getAttribute('onclick').match(/'([^']+)'/)[1];
-                header.onclick = () => toggleSection(sectionId);
+                header.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleSection(sectionId);
+                };
             });
 
-            // Initialize sections
-            ['trimControls', 'cropControls', 'textOverlayControls'].forEach(sectionId => {
-                const section = document.getElementById(sectionId);
-                if (section) {
-                    section.style.maxHeight = '0px';
+            // Initialize sections in collapsed state
+            function initializeSections() {
+                ['trimControls', 'cropControls', 'textOverlayControls', 'audioEffectsControls', 'effectsControls'].forEach(sectionId => {
+                    const section = document.getElementById(sectionId);
+                    if (section) {
+                        section.style.maxHeight = '0px';
+                        console.log('Initializing section:', sectionId);
+                    }
+                });
+            }
+
+            // Call initialization after DOM is loaded
+            document.addEventListener('DOMContentLoaded', () => {
+                initializeSections();
+                // Open Trim Controls by default after a short delay
+                setTimeout(() => toggleSection('trimControls'), 100);
+            });
+
+            // Initialize effects controls
+            const effectType = document.getElementById('effectType');
+            const chromaKeyControls = document.getElementById('chromaKeyControls');
+            const zoomControls = document.getElementById('zoomControls');
+
+            // Handle effect type changes
+            if (effectType) {
+                effectType.addEventListener('change', function () {
+                    if (chromaKeyControls) {
+                        chromaKeyControls.classList.toggle('hidden', this.value !== 'chromaKey');
+                    }
+                    if (zoomControls) {
+                        zoomControls.classList.toggle('hidden', this.value !== 'zoom');
+                    }
+                });
+            }
+
+            // Handle zoom start time button
+            if (setZoomStartBtn && videoPlayer) {
+                setZoomStartBtn.addEventListener('click', function () {
+                    const zoomStartInput = document.getElementById('zoomStartTime');
+                    if (zoomStartInput) {
+                        zoomStartInput.value = videoPlayer.currentTime.toFixed(1);
+                    }
+                });
+            }
+
+            // Function to collect effect parameters
+            function getEffectParams() {
+                const params = {
+                    effectType: effectType?.value || ''
+                };
+
+                // Add chroma key parameters if that effect is selected
+                if (params.effectType === 'chromaKey') {
+                    params.keyColor = document.getElementById('keyColor')?.value || '#00FF00';
+                    params.similarity = document.getElementById('similarity')?.value || 0.3;
+                    params.blend = document.getElementById('blend')?.value || 0.1;
                 }
-            });
+                // Add zoom parameters if that effect is selected
+                else if (params.effectType === 'zoom') {
+                    params.zoomStartTime = parseFloat(document.getElementById('zoomStartTime')?.value || 0);
+                    params.zoomDuration = parseFloat(document.getElementById('zoomDuration')?.value || 2);
+                    params.zoomScale = parseFloat(document.getElementById('zoomScale')?.value || 1.5);
+                    params.zoomDirection = document.getElementById('zoomDirection')?.value || 'in';
+                    params.zoomCenter = document.getElementById('zoomCenter')?.value || 'center';
+                }
 
-            // Open Trim Controls by default
-            setTimeout(() => toggleSection('trimControls'), 100);
+                return params;
+            }
 
             // Update maxHeight when content changes (for text overlay advanced mode)
             const advancedModeToggle = document.getElementById('advancedMode');
@@ -438,211 +819,6 @@
                 }
                 return true;
             }
-
-            // Form submission
-            form.addEventListener('submit', async function (e) {
-                e.preventDefault();
-                console.log('Form submit triggered');
-
-                if (!validateTrimInputs()) {
-                    return;
-                }
-
-                // Collect form data
-                const formData = new FormData(form);
-                const data = {};
-                formData.forEach((value, key) => {
-                    if (!key.startsWith('textOverlays')) {
-                        data[key] = value;
-                    }
-                });
-
-                // Handle text overlay data based on mode
-                if (advancedModeToggle.checked) {
-                    // Advanced mode - multiple timed text overlays
-                    data.textOverlays = Array.from(textOverlaysContainer.querySelectorAll('.text-overlay-entry')).map(entry => ({
-                        text: entry.querySelector('input[name="textOverlays[][text]"]').value,
-                        startTime: entry.querySelector('input[name="textOverlays[][startTime]"]').value,
-                        endTime: entry.querySelector('input[name="textOverlays[][endTime]"]').value,
-                        x: entry.querySelector('input[name="textOverlays[][x]"]').value,
-                        y: entry.querySelector('input[name="textOverlays[][y]"]').value,
-                        fontSize: entry.querySelector('input[name="textOverlays[][fontSize]"]').value,
-                        color: entry.querySelector('input[name="textOverlays[][color]"]').value,
-                        bgColor: entry.querySelector('input[name="textOverlays[][bgColor]"]').value,
-                        bgOpacity: entry.querySelector('input[name="textOverlays[][bgOpacity]"]').value
-                    }));
-                } else {
-                    // Simple mode - single text overlay
-                    const simpleText = document.getElementById('simpleText').value.trim();
-                    if (simpleText) {
-                        data.textOverlays = [{
-                            text: simpleText,
-                            x: document.getElementById('simpleX').value,
-                            y: document.getElementById('simpleY').value,
-                            fontSize: document.getElementById('simpleFontSize').value,
-                            color: document.getElementById('simpleColor').value,
-                            bgColor: document.getElementById('simpleBgColor').value,
-                            bgOpacity: document.getElementById('simpleBgOpacity').value,
-                            startTime: '0',
-                            endTime: String(videoPlayer ? videoPlayer.duration : 0)
-                        }];
-                    }
-                }
-
-                try {
-                    // Disable submit button
-                    if (submitButton) {
-                        submitButton.disabled = true;
-                        submitButton.innerHTML = `
-                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                        `;
-                    }
-
-                    // Show progress
-                    showProgress(true);
-                    updateProgress(0, 'Starting process...', 'Preparing your video');
-                    startProgressSimulation();
-
-                    // Send AJAX request
-                    const response = await fetch('/video_editor/process', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    console.log('Response status:', response.status);
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP error: ${response.status} - ${errorText}`);
-                    }
-
-                    const result = await response.json();
-                    console.log('Response result:', result);
-
-                    if (result.success) {
-                        // Show completion
-                        updateProgress(100, 'Processing complete!', 'Your video has been processed successfully.');
-
-                        // Update video player source to show the newly edited video
-                        const videoPlayer = document.getElementById('videoPlayer');
-                        if (videoPlayer) {
-                            videoPlayer.src = `/${result.editedFile}`;
-                            videoPlayer.load(); // Reload the video with new source
-                        }
-
-                        // Update hidden input for source file
-                        const sourceFileInput = document.querySelector('input[name="sourceFile"]');
-                        if (sourceFileInput) {
-                            sourceFileInput.value = result.editedFile;
-                        }
-
-                        // Update video ID
-                        const videoIdInput = document.querySelector('input[name="videoId"]');
-                        if (videoIdInput) {
-                            videoIdInput.value = result.videoId;
-                        }
-
-                        // Reset form values
-                        document.getElementById('trimStart').value = '';
-                        document.getElementById('trimEnd').value = '';
-                        document.getElementById('cropWidth').value = '';
-                        document.getElementById('cropHeight').value = '';
-                        document.getElementById('cropX').value = '';
-                        document.getElementById('cropY').value = '';
-
-                        // Show success message
-                        const successMessage = document.createElement('div');
-                        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-                        successMessage.textContent = 'Video processed successfully!';
-                        document.body.appendChild(successMessage);
-                        setTimeout(() => successMessage.remove(), 3000);
-
-                        // Hide progress overlay after a short delay
-                        setTimeout(() => {
-                            showProgress(false);
-                        }, 1000);
-
-                        // Refresh the edited videos list
-                        if (pageSelect.value) {
-                            fetch(`/video_editor/videos/${pageSelect.value}`)
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.success && editedVideos) {
-                                        // Update edited videos list
-                                        editedVideos.innerHTML = data.editedVideos.map(video => `
-                                            <div class="flex items-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 video-item"
-                                                data-video-id="${video.video_id}"
-                                                data-file="${video.edited_file}"
-                                                data-is-edited="true">
-                                                ${video.thumbnail ? `
-                                                    <img src="/${video.thumbnail}" alt="Thumbnail" 
-                                                        class="w-16 h-16 object-cover rounded-lg shadow-sm">
-                                                ` : `
-                                                    <div class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
-                                                        <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                        </svg>
-                                                    </div>
-                                                `}
-                                                <div class="ml-3 flex-1">
-                                                    <p class="text-sm font-medium text-gray-800">${video.edited_file.split('/').pop()}</p>
-                                                    <p class="text-xs text-gray-500">${new Date(video.created_at).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                        `).join('');
-
-                                        // Reattach click handlers
-                                        document.querySelectorAll('.video-item').forEach(item => {
-                                            item.addEventListener('click', () => handleVideoSelection(item));
-                                        });
-
-                                        // Select the newly added video
-                                        const newVideo = document.querySelector(`[data-file="${result.editedFile}"]`);
-                                        if (newVideo) {
-                                            newVideo.classList.add('selected');
-                                        }
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error refreshing videos:', error);
-                                });
-                        }
-                    } else {
-                        throw new Error(result.error || 'Failed to process video');
-                    }
-                } catch (error) {
-                    console.error('Submission error:', error);
-                    updateProgress(0, 'Error occurred', error.message);
-
-                    // Show error message
-                    const errorMessage = document.createElement('div');
-                    errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-                    errorMessage.textContent = `Error: ${error.message}`;
-                    document.body.appendChild(errorMessage);
-                    setTimeout(() => errorMessage.remove(), 5000);
-                } finally {
-                    // Reset submit button and hide progress
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = `
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
-                            Apply Changes
-                        `;
-                    }
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    showProgress(false);
-                }
-            });
 
             // Keyboard shortcuts
             document.addEventListener('keydown', function (e) {

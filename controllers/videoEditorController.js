@@ -2,6 +2,7 @@ const VideoEditor = require('../database/videoEditorModel');
 const fs = require('fs').promises;
 const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
+const AudioProcessor = require('../utils/audioProcessor');
 const { toRelativePath, toAbsolutePath, normalizePath } = require('../utils/pathUtils');
 
 // Define paths
@@ -195,6 +196,153 @@ exports.processVideo = async (req, res) => {
 
         if (cropWidth && cropHeight) {
             command.videoFilter(`crop=${cropWidth}:${cropHeight}:${cropX || 0}:${cropY || 0}`);
+        }
+
+        // Handle video effects
+        if (req.body.effectType) {
+            const {
+                effectType
+            } = req.body;
+
+            const filters = [];
+
+            // Apply selected effect with predefined settings
+            switch (effectType) {
+                case 'blackAndWhite':
+                    // Simple grayscale conversion
+                    filters.push('hue=s=0');
+                    break;
+
+                case 'vintage':
+                    // Sepia effect with warm tones
+                    filters.push(`curves=r='0/0 0.5/0.4 1/0.9':g='0/0 0.5/0.4 1/0.8':b='0/0 0.5/0.3 1/0.7',eq=brightness=0.1:contrast=1.1:saturation=0.8`);
+                    break;
+
+                case 'glitch':
+                    // Simplified glitch effect
+                    filters.push(`split=2[a][b];
+                        [a]curves=r='0/0.1 0.3/0.35 0.5/0.5 0.7/0.65 1/0.9'[a1];
+                        [b]hue=h=20[b1];
+                        [a1][b1]blend=all_expr='if(lt(random(1),0.25),A,B)'`);
+                    break;
+
+                case 'vignette':
+                    // Simple vignette effect
+                    filters.push('vignette=PI/4');
+                    break;
+
+                case 'blur':
+                    // Simple gaussian blur
+                    filters.push('boxblur=2:1');
+                    break;
+
+                case 'zoom':
+                    const zoomStartTime = parseFloat(req.body.zoomStartTime) || 0;
+                    const zoomDuration = parseFloat(req.body.zoomDuration) || 2;
+                    const zoomScale = parseFloat(req.body.zoomScale) || 1.5;
+                    const zoomDirection = req.body.zoomDirection || 'in';
+                    const zoomCenter = req.body.zoomCenter || 'center';
+
+                    // Calculate zoom parameters
+                    const zoomStart = zoomDirection === 'in' ? 1 : zoomScale;
+                    const zoomEnd = zoomDirection === 'in' ? zoomScale : 1;
+
+                    // Calculate center position based on selection
+                    let x, y;
+                    switch (zoomCenter) {
+                        case 'top':
+                            x = 'iw/2'; y = '0'; break;
+                        case 'bottom':
+                            x = 'iw/2'; y = 'ih'; break;
+                        case 'left':
+                            x = '0'; y = 'ih/2'; break;
+                        case 'right':
+                            x = 'iw'; y = 'ih/2'; break;
+                        default: // center
+                            x = 'iw/2'; y = 'ih/2'; break;
+                    }
+
+                    // Create the zoom filter with proper stream handling and dimension consistency
+                    const zoomFilter = `[0:v]split=3[base1][base2][base3];` +
+                        `[base2]trim=start=${zoomStartTime}:duration=${zoomDuration},setpts=PTS-STARTPTS,` +
+                        `scale=iw*${zoomEnd}:ih*${zoomEnd},` +
+                        `crop=iw/${zoomEnd}:ih/${zoomEnd}:` +
+                        `(iw-iw/${zoomEnd})/2:(ih-ih/${zoomEnd})/2[zoom];` +
+                        `[base1]trim=0:${zoomStartTime},setpts=PTS-STARTPTS[before];` +
+                        `[base3]trim=start=${zoomStartTime + zoomDuration},setpts=PTS-STARTPTS[after];` +
+                        `[before][zoom][after]concat=n=3:v=1[v]`;
+
+                    // Use complex filter and map the output
+                    command.complexFilter(zoomFilter)
+                        .outputOption('-map', '[v]')
+                        .outputOption('-map', '0:a?');
+                    break;
+
+                case 'chromaKey':
+                    // Extract parameters
+                    const keyColor = req.body.keyColor || '#00FF00';
+                    const similarity = parseFloat(req.body.similarity) || 0.3;
+                    const blend = parseFloat(req.body.blend) || 0.1;
+
+                    // Convert hex color to RGB values (keeping as hex string format)
+                    const colorHex = keyColor.replace('#', '0x');
+
+                    // Create chromakey filter with parameters
+                    filters.push(`chromakey=color=${colorHex}:similarity=${similarity}:blend=${blend}`);
+                    break;
+            }
+
+            // Apply all filters
+            if (filters.length > 0) {
+                const filterString = filters.join(',').replace(/\s+/g, ' ');
+                command.videoFilter(filterString);
+            }
+        }
+
+        // Handle audio effects
+        if (req.body.audioEffect) {
+            const { type, params } = req.body.audioEffect;
+            const audioProcessor = new AudioProcessor();
+
+            switch (type) {
+                case 'normalize':
+                    audioProcessor.normalize(params.level);
+                    break;
+
+                case 'fadeInOut':
+                    audioProcessor.fade(params.fadeIn, params.fadeOut);
+                    break;
+
+                case 'equalizer':
+                    audioProcessor.equalizer(params.low, params.mid, params.high);
+                    break;
+
+                case 'reverb':
+                    audioProcessor.reverb(params.mix / 100, params.room);
+                    break;
+
+                case 'compression':
+                    audioProcessor.compress(params.threshold, params.ratio);
+                    break;
+
+                case 'noise_reduction':
+                    audioProcessor.reduceNoise(params.strength / 100);
+                    break;
+
+                case 'pitch':
+                    audioProcessor.pitchShift(params.shift);
+                    break;
+
+                case 'tempo':
+                    audioProcessor.adjustTempo(params.factor);
+                    break;
+            }
+
+            // Apply audio filters
+            const audioFilters = audioProcessor.getFilters();
+            if (audioFilters.length > 0) {
+                command.audioFilters(audioFilters);
+            }
         }
 
         // Handle multiple text overlays
@@ -437,3 +585,16 @@ exports.getEditHistory = async (req, res) => {
         });
     }
 };
+
+// Helper function to get video duration
+async function getDuration(filePath) {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(filePath, (err, metadata) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            resolve(metadata.format.duration);
+        });
+    });
+}
