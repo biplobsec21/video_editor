@@ -106,6 +106,27 @@ db.serialize(() => {
             console.error('Error adding is_download to extract_page_reels:', err);
         }
     });
+
+    // Create temp_videos table
+    db.run(`
+        CREATE TABLE IF NOT EXISTS temp_videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER,
+            duration REAL,
+            resolution_width INTEGER,
+            resolution_height INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `, (err) => {
+        if (err) {
+            console.error('Error creating temp_videos table:', err);
+        } else {
+            console.log('temp_videos table created or already exists');
+        }
+    });
 });
 
 // Create edited_videos table
