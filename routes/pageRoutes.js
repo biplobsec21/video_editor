@@ -6,6 +6,7 @@ const videoController = require('../controllers/videoCollectionController');
 const videoEditorController = require('../controllers/videoEditorController');
 const contentCollectionController = require('../controllers/contentCollectionController');
 const tempVideoController = require('../controllers/tempVideoController');
+const tempAudioController = require('../controllers/tempAudioController');
 const fileUpload = require('express-fileupload');
 
 // Configure fileUpload middleware
@@ -66,5 +67,16 @@ router.delete('/temp_video/:id', tempVideoController.deleteVideo);
 router.get('/temp_video/list', tempVideoController.getVideos);
 router.post('/temp_video/download-youtube', tempVideoController.downloadYouTubeVideo);
 router.post('/temp_video/fetch-playlist-urls', tempVideoController.fetchPlaylistUrls);
+
+// Temp Audio Library Routes
+router.get('/temp_audio', tempAudioController.renderLibrary);
+router.post('/temp_audio/upload', fileUpload({
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit
+    useTempFiles: false
+}), tempAudioController.uploadAudio);
+router.delete('/temp_audio/:id', tempAudioController.deleteAudio);
+router.get('/temp_audio/list', tempAudioController.getAudioFiles);
+router.post('/temp_audio/download-youtube', tempAudioController.downloadYouTubeAudio);
+router.post('/temp_audio/fetch-playlist-urls', tempAudioController.fetchPlaylistUrls);
 
 module.exports = router;

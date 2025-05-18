@@ -1,0 +1,701 @@
+<!-- Temp Audio Library -->
+<div class="container mx-auto p-6">
+    <div class="flex justify-between items-center mb-8">
+        <h2 class="text-2xl font-bold text-gray-800">Temporary Audio Library</h2>
+        <a href="/content_collection" class="text-indigo-600 hover:text-indigo-900 font-medium">Back to Content
+            Collection</a>
+    </div>
+
+    <!-- YouTube Download Card -->
+    <div class="mb-8 bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Download from YouTube</h3>
+            <div class="space-y-4">
+                <div>
+                    <label for="youtubeUrl" class="block text-sm font-medium text-gray-700 mb-1">YouTube URL</label>
+                    <input type="url" id="youtubeUrl"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="https://www.youtube.com/watch?v=... or https://www.youtube.com/playlist?list=...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Audio Type</label>
+                    <div class="flex gap-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="audioType" value="single" checked
+                                class="form-radio text-indigo-600 focus:ring-indigo-500"
+                                onchange="handleAudioTypeChange(this.value)">
+                            <span class="ml-2 text-sm text-gray-700">Single Track</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="audioType" value="playlist"
+                                class="form-radio text-indigo-600 focus:ring-indigo-500"
+                                onchange="handleAudioTypeChange(this.value)">
+                            <span class="ml-2 text-sm text-gray-700">Playlist</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Single Track Download Button -->
+                <div id="singleTrackDownload" class="download-action">
+                    <button onclick="downloadYouTubeAudio()"
+                        class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Download Track
+                    </button>
+                </div>
+
+                <!-- Playlist URL List -->
+                <div id="playlistUrlList" class="download-action hidden">
+                    <div class="mb-4">
+                        <button onclick="fetchPlaylistUrls()"
+                            class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Fetch Playlist URLs
+                        </button>
+                    </div>
+                    <div id="playlistUrls" class="space-y-2 max-h-60 overflow-y-auto bg-gray-50 p-4 rounded-lg">
+                        <!-- Playlist URLs will be added here -->
+                    </div>
+                    <div class="mt-4">
+                        <button onclick="downloadYouTubeAudio()"
+                            class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            Download All Tracks
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download Progress -->
+            <div id="downloadProgress" class="mt-4 hidden">
+                <div class="mb-2 flex justify-between items-center">
+                    <span id="downloadStatus" class="text-sm text-gray-600"></span>
+                    <span id="downloadCount" class="text-sm text-gray-600"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                        style="width: 0%"></div>
+                </div>
+
+                <!-- Playlist Info -->
+                <div id="playlistInfo" class="mt-4 hidden">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <h4 class="text-sm font-medium text-gray-700">Playlist Information</h4>
+                        <p id="playlistName" class="text-sm text-gray-600"></p>
+                        <p id="playlistPath" class="text-sm text-gray-600 break-all"></p>
+                    </div>
+                </div>
+
+                <!-- Download List -->
+                <div id="downloadList" class="mt-4 space-y-2 max-h-60 overflow-y-auto">
+                    <!-- Download items will be added here dynamically -->
+                </div>
+
+                <div id="downloadErrors" class="mt-2 text-sm text-red-600"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Area -->
+    <div id="uploadArea" class="mb-8 p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 text-center">
+        <div class="space-y-4">
+            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                <path
+                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4-4m4-4h8m-4-4v8m-12 4h.02"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div class="text-gray-600">
+                <p class="text-lg font-medium">Drag and drop your audio files here</p>
+                <p class="text-sm">or</p>
+                <label
+                    class="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer">
+                    Browse Files
+                    <input type="file" class="hidden" id="fileInput" multiple
+                        accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg">
+                </label>
+            </div>
+            <p class="text-xs text-gray-500">MP3, WAV, OGG up to 500MB</p>
+        </div>
+    </div>
+
+    <!-- Bulk Delete Button -->
+    <div class="mb-4 flex items-center gap-4">
+        <button id="bulkDeleteBtn"
+            class="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 disabled:opacity-50" disabled
+            onclick="bulkDeleteAudio()">
+            Delete Selected
+        </button>
+        <span id="selectedCount" class="text-sm text-gray-600"></span>
+    </div>
+
+    <!-- Audio Grid -->
+    <div id="audioGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <% audioFiles.forEach(audio=> { %>
+            <div class="bg-white rounded-lg shadow overflow-hidden relative" data-audio-id="<%= audio.id %>">
+                <input type="checkbox" class="absolute top-2 left-2 z-10 audio-checkbox" value="<%= audio.id %>"
+                    onclick="updateSelectedCount()">
+                <div class="relative aspect-video bg-gray-100 flex items-center justify-center">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                    <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-1 text-xs">
+                        <%= Math.floor(audio.duration / 60) %>:<%= String(Math.floor(audio.duration %
+                                60)).padStart(2, '0' ) %>
+                    </div>
+                </div>
+                <div class="p-2">
+                    <h3 class="text-xs font-medium text-gray-900 truncate" title="<%= audio.original_name %>">
+                        <%= audio.original_name %>
+                    </h3>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <%= (audio.file_size / (1024 * 1024)).toFixed(2) %> MB • <%= audio.bitrate / 1000 %> kbps
+                    </p>
+                    <div class="mt-2 flex justify-between items-center">
+                        <button onclick="playAudio('<%= audio.id %>', '<%= audio.file_path %>')"
+                            class="text-indigo-600 hover:text-indigo-900 text-xs font-medium">
+                            Play
+                        </button>
+                        <button onclick="deleteAudio('<%= audio.id %>')"
+                            class="text-red-600 hover:text-red-900 text-xs font-medium">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <% }); %>
+    </div>
+</div>
+
+<!-- Audio Player Modal -->
+<div id="audioPlayerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900" id="audioPlayerTitle"></h3>
+            <button onclick="closeAudioPlayer()" class="text-gray-400 hover:text-gray-500">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <audio id="audioPlayer" controls class="w-full">
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+</div>
+
+<script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    let uploadQueue = [];
+    let isUploading = false;
+
+    // Drag and drop handlers
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        uploadArea.classList.add('border-indigo-500', 'bg-indigo-50');
+    }
+
+    function unhighlight(e) {
+        uploadArea.classList.remove('border-indigo-500', 'bg-indigo-50');
+    }
+
+    uploadArea.addEventListener('drop', handleDrop, false);
+    fileInput.addEventListener('change', handleFiles, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles({ target: { files } });
+    }
+
+    function handleFiles(e) {
+        const files = [...e.target.files];
+        if (files.length === 0) return;
+
+        // Add files to queue
+        uploadQueue = [...uploadQueue, ...files];
+
+        // Show upload status
+        showUploadStatus(`Added ${files.length} file(s) to upload queue`);
+
+        // Start processing if not already uploading
+        if (!isUploading) {
+            processUploadQueue();
+        }
+    }
+
+    async function processUploadQueue() {
+        if (uploadQueue.length === 0) {
+            isUploading = false;
+            return;
+        }
+
+        isUploading = true;
+        const files = uploadQueue.splice(0, 5); // Process up to 5 files at a time
+        const formData = new FormData();
+
+        files.forEach((file, index) => {
+            formData.append('audio', file);
+        });
+
+        try {
+            showUploadStatus(`Uploading ${files.length} file(s)...`);
+            const response = await fetch('/temp_audio/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('Upload response:', result);
+
+            if (result.success) {
+                if (result.audioFiles && result.audioFiles.length > 0) {
+                    showUploadStatus(`Successfully uploaded ${result.audioFiles.length} file(s)`);
+                    // Refresh the page to show new files
+                    window.location.reload();
+                }
+                if (result.errors && result.errors.length > 0) {
+                    result.errors.forEach(error => {
+                        showError(`Failed to upload ${error.filename}: ${error.error}`);
+                    });
+                }
+            } else {
+                showError(result.message || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            showError(`Error uploading files: ${error.message}`);
+        }
+
+        // Process next batch
+        setTimeout(() => processUploadQueue(), 1000);
+    }
+
+    function showUploadStatus(message) {
+        const statusDiv = document.getElementById('uploadStatus') || createUploadStatusElement();
+        statusDiv.textContent = message;
+        statusDiv.classList.remove('hidden');
+    }
+
+    function createUploadStatusElement() {
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'uploadStatus';
+        statusDiv.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        document.body.appendChild(statusDiv);
+        return statusDiv;
+    }
+
+    async function deleteAudio(id) {
+        if (!confirm('Are you sure you want to delete this audio file?')) return;
+
+        try {
+            const response = await fetch(`/temp_audio/${id}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                const audioElement = document.querySelector(`[data-audio-id="${id}"]`);
+                if (audioElement) {
+                    audioElement.remove();
+                }
+            } else {
+                showError(result.message || 'Delete failed');
+            }
+        } catch (error) {
+            showError('Error deleting audio file');
+        }
+    }
+
+    function playAudio(id, path) {
+        const modal = document.getElementById('audioPlayerModal');
+        const player = document.getElementById('audioPlayer');
+        const title = document.getElementById('audioPlayerTitle');
+        const audioElement = document.querySelector(`[data-audio-id="${id}"]`);
+
+        title.textContent = audioElement.querySelector('h3').textContent;
+        player.src = path;
+        modal.classList.remove('hidden');
+        player.play();
+    }
+
+    function closeAudioPlayer() {
+        const modal = document.getElementById('audioPlayerModal');
+        const player = document.getElementById('audioPlayer');
+        player.pause();
+        modal.classList.add('hidden');
+    }
+
+    function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        errorDiv.textContent = message;
+        document.body.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 3000);
+    }
+
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.audio-checkbox:checked');
+        const count = checkboxes.length;
+        document.getElementById('selectedCount').textContent = count > 0 ? `${count} selected` : '';
+        document.getElementById('bulkDeleteBtn').disabled = count === 0;
+    }
+
+    async function bulkDeleteAudio() {
+        const checkboxes = document.querySelectorAll('.audio-checkbox:checked');
+        if (checkboxes.length === 0) return;
+        if (!confirm(`Delete ${checkboxes.length} selected audio file(s)?`)) return;
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+        let successCount = 0, failCount = 0;
+        for (const id of ids) {
+            try {
+                const response = await fetch(`/temp_audio/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    const audioElement = document.querySelector(`[data-audio-id="${id}"]`);
+                    if (audioElement) audioElement.remove();
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (e) {
+                failCount++;
+            }
+        }
+        updateSelectedCount();
+        showUploadStatus(`${successCount} deleted, ${failCount} failed`);
+    }
+
+    function handleAudioTypeChange(type) {
+        const singleTrackDownload = document.getElementById('singleTrackDownload');
+        const playlistUrlList = document.getElementById('playlistUrlList');
+
+        if (type === 'single') {
+            singleTrackDownload.classList.remove('hidden');
+            playlistUrlList.classList.add('hidden');
+        } else {
+            singleTrackDownload.classList.add('hidden');
+            playlistUrlList.classList.remove('hidden');
+        }
+    }
+
+    async function fetchPlaylistUrls() {
+        const url = document.getElementById('youtubeUrl').value.trim();
+        if (!url) {
+            showError('Please enter a YouTube playlist URL');
+            return;
+        }
+
+        const playlistUrls = document.getElementById('playlistUrls');
+        playlistUrls.innerHTML = '<div class="text-center text-gray-600">Fetching playlist URLs...</div>';
+
+        try {
+            const response = await fetch('/temp_audio/fetch-playlist-urls', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                playlistUrls.innerHTML = data.urls.map((video, index) => `
+                    <div class="flex items-start space-x-2 p-2 hover:bg-gray-100 rounded">
+                        <input type="checkbox" 
+                            class="mt-1 video-url-checkbox" 
+                            value="${video.url}" 
+                            checked
+                            onchange="updateSelectedUrls()">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate" title="${video.title}">${video.title}</p>
+                            <p class="text-xs text-gray-500 truncate">${video.url}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                showError(data.message || 'Failed to fetch playlist URLs');
+                playlistUrls.innerHTML = '<div class="text-center text-red-600">Failed to fetch playlist URLs</div>';
+            }
+        } catch (error) {
+            showError('Error fetching playlist URLs');
+            playlistUrls.innerHTML = '<div class="text-center text-red-600">Error fetching playlist URLs</div>';
+        }
+    }
+
+    function updateSelectedUrls() {
+        const checkboxes = document.querySelectorAll('.video-url-checkbox:checked');
+        const downloadButton = document.querySelector('#playlistUrlList button:last-child');
+        downloadButton.disabled = checkboxes.length === 0;
+    }
+
+    async function downloadYouTubeAudio() {
+        const url = document.getElementById('youtubeUrl').value.trim();
+        const audioType = document.querySelector('input[name="audioType"]:checked').value;
+
+        if (!url) {
+            showError('Please enter a YouTube URL');
+            return;
+        }
+
+        if (audioType === 'playlist') {
+            const selectedUrls = Array.from(document.querySelectorAll('.video-url-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+
+            if (selectedUrls.length === 0) {
+                showError('Please select at least one track to download');
+                return;
+            }
+
+            // Update the URL input with the first selected URL
+            document.getElementById('youtubeUrl').value = selectedUrls[0];
+        }
+
+        const downloadProgress = document.getElementById('downloadProgress');
+        const downloadStatus = document.getElementById('downloadStatus');
+        const downloadCount = document.getElementById('downloadCount');
+        const progressBar = document.getElementById('progressBar');
+        const downloadList = document.getElementById('downloadList');
+        const playlistInfo = document.getElementById('playlistInfo');
+        const playlistName = document.getElementById('playlistName');
+        const playlistPath = document.getElementById('playlistPath');
+        const downloadErrors = document.getElementById('downloadErrors');
+
+        // Reset progress elements
+        downloadProgress.classList.remove('hidden');
+        downloadStatus.textContent = 'Starting download...';
+        downloadCount.textContent = '';
+        progressBar.style.width = '0%';
+        downloadList.innerHTML = '';
+        playlistInfo.classList.add('hidden');
+        downloadErrors.textContent = '';
+
+        try {
+            const response = await fetch('/temp_audio/download-youtube', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url, audioType })
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = JSON.parse(line.slice(6));
+
+                        switch (data.type) {
+                            case 'progress':
+                                downloadStatus.textContent = data.message;
+                                downloadCount.textContent = `${data.completed}/${data.total}`;
+                                progressBar.style.width = `${(data.completed / data.total) * 100}%`;
+
+                                // Show playlist info if available
+                                if (data.playlistInfo) {
+                                    playlistInfo.classList.remove('hidden');
+                                    playlistName.textContent = `Playlist: ${data.playlistInfo.name}`;
+                                    playlistPath.textContent = `Location: ${data.playlistInfo.path}`;
+                                }
+
+                                // Update download list
+                                if (data.current) {
+                                    updateDownloadList(data.current);
+                                }
+                                break;
+
+                            case 'error':
+                                downloadErrors.textContent += `Error downloading ${data.video.title}: ${data.video.error}\n`;
+                                updateDownloadList({
+                                    ...data.video,
+                                    status: 'error'
+                                });
+                                break;
+
+                            case 'complete':
+                                downloadStatus.textContent = data.message;
+                                if (data.errors > 0) {
+                                    downloadErrors.textContent += `\nCompleted with ${data.errors} errors.`;
+                                }
+                                setTimeout(() => {
+                                    downloadProgress.classList.add('hidden');
+                                    window.location.reload();
+                                }, 3000);
+                                break;
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            showError('Error downloading audio');
+            downloadProgress.classList.add('hidden');
+        }
+    }
+
+    function updateDownloadList(audio) {
+        const downloadList = document.getElementById('downloadList');
+        const audioId = `audio-${audio.filename}`;
+        let audioElement = document.getElementById(audioId);
+
+        if (!audioElement) {
+            audioElement = document.createElement('div');
+            audioElement.id = audioId;
+            audioElement.className = 'bg-white p-3 rounded-lg shadow-sm border border-gray-200';
+            downloadList.appendChild(audioElement);
+        }
+
+        const statusColor = {
+            'downloading': 'text-blue-600',
+            'completed': 'text-green-600',
+            'error': 'text-red-600'
+        }[audio.status] || 'text-gray-600';
+
+        const statusIcon = {
+            'downloading': '⏳',
+            'completed': '✅',
+            'error': '❌'
+        }[audio.status] || '';
+
+        audioElement.innerHTML = `
+            <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">${audio.title}</p>
+                    <p class="text-xs text-gray-500 break-all">${audio.directory}</p>
+                    ${audio.status === 'completed' ? `
+                        <p class="text-xs text-gray-500 mt-1">
+                            Size: ${(audio.size / (1024 * 1024)).toFixed(2)} MB
+                            ${audio.duration ? `• Duration: ${Math.floor(audio.duration / 60)}:${String(Math.floor(audio.duration % 60)).padStart(2, '0')}` : ''}
+                        </p>
+                    ` : ''}
+                </div>
+                <div class="ml-4 flex-shrink-0">
+                    <span class="text-sm ${statusColor}">${statusIcon} ${audio.status}</span>
+                </div>
+            </div>
+        `;
+
+        // Scroll to the bottom of the list
+        downloadList.scrollTop = downloadList.scrollHeight;
+    }
+</script>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-1rem);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    #uploadStatus {
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    #uploadStatus.hidden {
+        opacity: 0;
+    }
+
+    .form-radio {
+        @apply h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300;
+    }
+
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    #progressBar {
+        transition: width 0.3s ease-in-out;
+    }
+
+    #downloadErrors {
+        white-space: pre-line;
+    }
+
+    #downloadList {
+        scrollbar-width: thin;
+        scrollbar-color: #CBD5E0 #EDF2F7;
+    }
+
+    #downloadList::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #downloadList::-webkit-scrollbar-track {
+        background: #EDF2F7;
+        border-radius: 3px;
+    }
+
+    #downloadList::-webkit-scrollbar-thumb {
+        background-color: #CBD5E0;
+        border-radius: 3px;
+    }
+
+    #playlistUrls {
+        scrollbar-width: thin;
+        scrollbar-color: #CBD5E0 #EDF2F7;
+    }
+
+    #playlistUrls::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #playlistUrls::-webkit-scrollbar-track {
+        background: #EDF2F7;
+        border-radius: 3px;
+    }
+
+    #playlistUrls::-webkit-scrollbar-thumb {
+        background-color: #CBD5E0;
+        border-radius: 3px;
+    }
+
+    .video-url-checkbox {
+        @apply h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded;
+    }
+</style>

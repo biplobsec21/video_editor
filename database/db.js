@@ -127,6 +127,28 @@ db.serialize(() => {
             console.log('temp_videos table created or already exists');
         }
     });
+
+    // Create temp_audio table
+    db.run(`
+        CREATE TABLE IF NOT EXISTS temp_audio (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER,
+            duration REAL,
+            bitrate INTEGER,
+            sample_rate INTEGER,
+            channels INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `, (err) => {
+        if (err) {
+            console.error('Error creating temp_audio table:', err);
+        } else {
+            console.log('temp_audio table created or already exists');
+        }
+    });
 });
 
 // Create edited_videos table
