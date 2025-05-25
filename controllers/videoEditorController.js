@@ -124,7 +124,10 @@ exports.processVideo = async (req, res) => {
             cropX,
             cropY,
             textOverlays,
-            sourceFile
+            sourceFile,
+            borderSize,
+            borderColor,
+            borderStyle
         } = req.body;
 
         // Normalize input path - use sourceFile directly if provided
@@ -188,6 +191,30 @@ exports.processVideo = async (req, res) => {
                 console.error('FFmpeg stdout:', stdout);
                 console.error('FFmpeg stderr:', stderr);
             });
+
+        // Add border if specified
+        if (borderSize && parseInt(borderSize) > 0) {
+            const color = borderColor?.replace('#', '0x') || '0x000000';
+            const style = borderStyle || 'solid';
+
+            // Convert border style to FFmpeg format
+            let borderFilter;
+            switch (style) {
+                case 'dashed':
+                    borderFilter = `drawbox=x=0:y=0:w=iw:h=ih:color=${color}@1:t=${borderSize}:replace=1:draw='if(mod(n,20)<10,1,0)'`;
+                    break;
+                case 'dotted':
+                    borderFilter = `drawbox=x=0:y=0:w=iw:h=ih:color=${color}@1:t=${borderSize}:replace=1:draw='if(mod(n,10)<5,1,0)'`;
+                    break;
+                case 'double':
+                    borderFilter = `drawbox=x=0:y=0:w=iw:h=ih:color=${color}@1:t=${borderSize}:replace=1,drawbox=x=${borderSize}:y=${borderSize}:w=iw-${borderSize * 2}:h=ih-${borderSize * 2}:color=${color}@1:t=${borderSize}:replace=1`;
+                    break;
+                default: // solid
+                    borderFilter = `drawbox=x=0:y=0:w=iw:h=ih:color=${color}@1:t=${borderSize}:replace=1`;
+            }
+
+            command.videoFilter(borderFilter);
+        }
 
         if (trimStart || trimEnd) {
             command.setStartTime(trimStart || 0);
@@ -364,6 +391,17 @@ exports.processVideo = async (req, res) => {
                 const xPos = x ? `(w-text_w)*${parseInt(x) / 100}` : '(w-text_w)/2';
                 const yPos = y ? `(h-text_h)*${parseInt(y) / 100}` : '(h-text_h)/2';
 
+                // Get video duration for end time if not specified
+                let videoEndTime;
+                if (sourceFile) {
+                    // If editing an already edited video, use its duration
+                    videoEndTime = '999999'; // Use a large number for end time if not specified
+                } else {
+                    // For original videos, use the duration from the database
+                    const video = videos.find(v => v.id == videoId);
+                    videoEndTime = video ? video.durationMs / 1000 : '999999';
+                }
+
                 // Build the drawtext filter with all options
                 return [
                     `drawtext=text='${text.replace(/'/g, "'\\\\\\''")}'`,
@@ -375,7 +413,7 @@ exports.processVideo = async (req, res) => {
                     'box=1',
                     `boxcolor=${bgColor?.replace('#', '0x') || '000000'}@${(parseInt(bgOpacity) || 50) / 100}`,
                     'boxborderw=5',
-                    `enable='between(t,${parseFloat(startTime) || 0},${parseFloat(endTime) || originalVideo.durationMs / 1000})'`
+                    `enable='between(t,${parseFloat(startTime) || 0},${parseFloat(endTime) || videoEndTime})'`
                 ].join(':');
             });
 

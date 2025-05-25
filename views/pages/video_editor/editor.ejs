@@ -77,26 +77,29 @@
                             <div class="flex items-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 video-item"
                                 data-video-id="<%= video.video_id %>" data-file="<%= video.edited_file %>"
                                 data-is-edited="true">
-                                ${video.thumbnail ? `
-                                <img src="/${video.thumbnail}" alt="Thumbnail"
-                                    class="w-16 h-16 object-cover rounded-lg shadow-sm">
-                                ` : `
-                                <div
-                                    class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
-                                    <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                </div>
-                                `}
-                                <div class="ml-3 flex-1">
-                                    <div class="flex justify-between items-start">
-                                        <p class="text-sm font-medium text-gray-800">
-                                            ${video.edited_file.split('/').pop()}</p>
-                                    </div>
-                                    <p class="text-xs text-gray-500">${new Date(video.created_at).toLocaleString()}</p>
-                                </div>
+                                <% if (video.thumbnail) { %>
+                                    <img src="/<%= video.thumbnail %>" alt="Thumbnail"
+                                        class="w-16 h-16 object-cover rounded-lg shadow-sm">
+                                    <% } else { %>
+                                        <div
+                                            class="w-16 h-16 bg-gray-200 rounded-lg shadow-sm flex items-center justify-center">
+                                            <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
+                                        </div>
+                                        <% } %>
+                                            <div class="ml-3 flex-1">
+                                                <div class="flex justify-between items-start">
+                                                    <p class="text-sm font-medium text-gray-800">
+                                                        <%= video.edited_file.split('/').pop() %>
+                                                    </p>
+                                                </div>
+                                                <p class="text-xs text-gray-500">
+                                                    <%= new Date(video.created_at).toLocaleString() %>
+                                                </p>
+                                            </div>
                             </div>
                             <% }) %>
                     </div>
@@ -230,53 +233,29 @@
                 form.onsubmit = async function (e) {
                     e.preventDefault();
 
+                    if (!validateTextOverlay()) {
+                        return;
+                    }
+
                     const formData = new FormData(form);
                     const data = {};
 
-                    // Add audio effect parameters
-                    const audioEffect = audioEffectType?.value;
-                    if (audioEffect) {
-                        data.audioEffect = {
-                            type: audioEffect,
-                            params: {}
-                        };
+                    // Add text overlay data
+                    const textOverlay = {
+                        text: formData.get('overlayText'),
+                        x: formData.get('textX'),
+                        y: formData.get('textY'),
+                        fontSize: formData.get('fontSize'),
+                        color: formData.get('textColor'),
+                        bgColor: formData.get('bgColor'),
+                        bgOpacity: formData.get('bgOpacity')
+                    };
 
-                        switch (audioEffect) {
-                            case 'normalize':
-                                data.audioEffect.params.level = document.getElementById('normalizeLevel')?.value;
-                                break;
-                            case 'fadeInOut':
-                                data.audioEffect.params.fadeIn = document.getElementById('fadeInDuration')?.value;
-                                data.audioEffect.params.fadeOut = document.getElementById('fadeOutDuration')?.value;
-                                break;
-                            case 'equalizer':
-                                data.audioEffect.params.low = document.getElementById('eqLow')?.value;
-                                data.audioEffect.params.mid = document.getElementById('eqMid')?.value;
-                                data.audioEffect.params.high = document.getElementById('eqHigh')?.value;
-                                break;
-                            case 'reverb':
-                                data.audioEffect.params.mix = document.getElementById('reverbMix')?.value;
-                                data.audioEffect.params.room = document.getElementById('reverbRoom')?.value;
-                                break;
-                            case 'compression':
-                                data.audioEffect.params.threshold = document.getElementById('compThreshold')?.value;
-                                data.audioEffect.params.ratio = document.getElementById('compRatio')?.value;
-                                break;
-                            case 'noise_reduction':
-                                data.audioEffect.params.strength = document.getElementById('nrStrength')?.value;
-                                break;
-                            case 'pitch':
-                                data.audioEffect.params.shift = document.getElementById('pitchShift')?.value;
-                                break;
-                            case 'tempo':
-                                data.audioEffect.params.factor = document.getElementById('tempoFactor')?.value;
-                                break;
-                        }
-                    }
+                    data.textOverlays = [textOverlay];
 
-                    // Merge with existing form data
+                    // Add other form data
                     formData.forEach((value, key) => {
-                        if (!key.startsWith('audio')) {
+                        if (!key.startsWith('text') && key !== 'overlayText') {
                             data[key] = value;
                         }
                     });
@@ -728,94 +707,11 @@
             }
 
             // Text overlay management
-            const textOverlaysContainer = document.getElementById('textOverlaysContainer');
-            const textOverlayTemplate = document.getElementById('textOverlayTemplate');
-            const addTextOverlayBtn = document.getElementById('addTextOverlay');
-            const simpleModeDiv = document.getElementById('simpleMode');
-            const advancedModeDiv = document.getElementById('advancedModeContainer');
-
-            // Mode switching
-            if (advancedModeToggle) {
-                advancedModeToggle.addEventListener('change', function () {
-                    const isAdvanced = this.checked;
-                    simpleModeDiv.classList.toggle('hidden', isAdvanced);
-                    advancedModeDiv.classList.toggle('hidden', !isAdvanced);
-                    addTextOverlayBtn.classList.toggle('hidden', !isAdvanced);
-
-                    // If switching to advanced mode, add initial text overlay if none exists
-                    if (isAdvanced && textOverlaysContainer.children.length === 0) {
-                        addTextOverlay();
-                    }
-                });
-            }
-
-            function addTextOverlay(overlayData = null) {
-                const clone = document.importNode(textOverlayTemplate.content, true);
-                const entry = clone.querySelector('.text-overlay-entry');
-
-                // Add remove handler
-                entry.querySelector('.remove-text-overlay').addEventListener('click', function () {
-                    entry.remove();
-                });
-
-                // Add time set handlers
-                entry.querySelector('.set-text-start').addEventListener('click', function () {
-                    const startInput = this.parentElement.querySelector('input');
-                    if (startInput && videoPlayer) {
-                        startInput.value = videoPlayer.currentTime.toFixed(1);
-                    }
-                });
-
-                entry.querySelector('.set-text-end').addEventListener('click', function () {
-                    const endInput = this.parentElement.querySelector('input');
-                    if (endInput && videoPlayer) {
-                        endInput.value = videoPlayer.currentTime.toFixed(1);
-                    }
-                });
-
-                // Populate with existing data if provided
-                if (overlayData) {
-                    entry.querySelector('input[name="textOverlays[][text]"]').value = overlayData.text || '';
-                    entry.querySelector('input[name="textOverlays[][startTime]"]').value = overlayData.startTime || 0;
-                    entry.querySelector('input[name="textOverlays[][endTime]"]').value = overlayData.endTime || '';
-                    entry.querySelector('input[name="textOverlays[][x]"]').value = overlayData.x || 50;
-                    entry.querySelector('input[name="textOverlays[][y]"]').value = overlayData.y || 50;
-                    entry.querySelector('input[name="textOverlays[][fontSize]"]').value = overlayData.fontSize || 24;
-                    entry.querySelector('input[name="textOverlays[][color]"]').value = overlayData.color || '#ffffff';
-                    entry.querySelector('input[name="textOverlays[][bgColor]"]').value = overlayData.bgColor || '#000000';
-                    entry.querySelector('input[name="textOverlays[][bgOpacity]"]').value = overlayData.bgOpacity || 50;
-                }
-
-                textOverlaysContainer.appendChild(clone);
-            }
-
-            // Add text overlay button handler
-            if (addTextOverlayBtn) {
-                addTextOverlayBtn.addEventListener('click', addTextOverlay);
-            }
-
-            // Validate text overlays timing
-            function validateTextOverlays() {
-                const entries = textOverlaysContainer.querySelectorAll('.text-overlay-entry');
-                for (const entry of entries) {
-                    const startTime = parseFloat(entry.querySelector('input[name="textOverlays[][startTime]"]').value) || 0;
-                    const endTime = parseFloat(entry.querySelector('input[name="textOverlays[][endTime]"]').value) || (videoPlayer ? videoPlayer.duration : 0);
-                    const text = entry.querySelector('input[name="textOverlays[][text]"]').value.trim();
-
-                    if (!text) {
-                        alert('Please enter text for all text overlays');
-                        return false;
-                    }
-
-                    if (startTime >= endTime) {
-                        alert('Text start time must be less than end time for all text overlays');
-                        return false;
-                    }
-
-                    if (videoPlayer && (startTime < 0 || endTime > videoPlayer.duration)) {
-                        alert('Text timing values must be within video duration for all text overlays');
-                        return false;
-                    }
+            function validateTextOverlay() {
+                const text = document.getElementById('overlayText')?.value.trim();
+                if (!text) {
+                    alert('Please enter text for the overlay');
+                    return false;
                 }
                 return true;
             }

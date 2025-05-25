@@ -155,6 +155,51 @@
                     </div>
                 </div>
 
+                <!-- Border Controls Card -->
+                <div class="bg-white rounded-lg p-4 shadow-lg">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center justify-between cursor-pointer"
+                        onclick="toggleSection('borderControls')">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                            Video Border
+                        </div>
+                        <svg class="w-5 h-5 transform transition-transform duration-200" id="borderControlsIcon"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </h3>
+                    <div id="borderControls" class="space-y-4 transition-all duration-300 overflow-hidden"
+                        style="max-height: 0;">
+                        <div>
+                            <label for="borderSize" class="block text-sm font-medium text-gray-700 mb-1">Border Size
+                                (px)</label>
+                            <input type="number" id="borderSize" name="borderSize" min="0" max="50" value="0"
+                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="borderColor" class="block text-sm font-medium text-gray-700 mb-1">Border
+                                Color</label>
+                            <input type="color" id="borderColor" name="borderColor" value="#000000"
+                                class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="borderStyle" class="block text-sm font-medium text-gray-700 mb-1">Border
+                                Style</label>
+                            <select id="borderStyle" name="borderStyle"
+                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="solid">Solid</option>
+                                <option value="dashed">Dashed</option>
+                                <option value="dotted">Dotted</option>
+                                <option value="double">Double</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Effects Controls Card -->
                 <div class="bg-white rounded-lg p-4 shadow-lg">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center justify-between cursor-pointer"
@@ -488,84 +533,64 @@
                             </svg>
                             Text Overlay
                         </div>
-                        <div class="flex items-center space-x-4">
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="advancedMode" class="sr-only peer">
-                                <div
-                                    class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
-                                </div>
-                                <span class="ml-3 text-sm font-medium text-gray-700">Advanced Mode</span>
-                            </label>
-                            <svg class="w-5 h-5 transform transition-transform duration-200"
-                                id="textOverlayControlsIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </div>
+                        <svg class="w-5 h-5 transform transition-transform duration-200" id="textOverlayControlsIcon"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
                     </h3>
-                    <div id="textOverlayControls" class="transition-all duration-300 overflow-hidden"
+                    <div id="textOverlayControls" class="space-y-4 transition-all duration-300 overflow-hidden"
                         style="max-height: 0;">
-                        <!-- Simple Mode -->
-                        <div id="simpleMode" class="space-y-4">
+                        <!-- Text Content -->
+                        <div>
+                            <label for="overlayText" class="block text-sm font-medium text-gray-700 mb-1">Text
+                                Content</label>
+                            <input type="text" id="overlayText" name="overlayText"
+                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Enter text to overlay">
+                        </div>
+
+                        <!-- Text Style -->
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label for="simpleText" class="block text-sm font-medium text-gray-700 mb-1">Text
-                                    Content</label>
-                                <input type="text" id="simpleText" name="simpleText"
-                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                    placeholder="Enter text to overlay">
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="simpleX" class="block text-sm font-medium text-gray-700 mb-1">X Position
-                                        (%)</label>
-                                    <input type="number" id="simpleX" name="simpleX" min="0" max="100" value="50"
-                                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                </div>
-                                <div>
-                                    <label for="simpleY" class="block text-sm font-medium text-gray-700 mb-1">Y Position
-                                        (%)</label>
-                                    <input type="number" id="simpleY" name="simpleY" min="0" max="100" value="50"
-                                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="simpleFontSize"
-                                        class="block text-sm font-medium text-gray-700 mb-1">Font
-                                        Size</label>
-                                    <input type="number" id="simpleFontSize" name="simpleFontSize" min="12" max="72"
-                                        value="24"
-                                        class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                </div>
-                                <div>
-                                    <label for="simpleColor" class="block text-sm font-medium text-gray-700 mb-1">Text
-                                        Color</label>
-                                    <input type="color" id="simpleColor" name="simpleColor" value="#ffffff"
-                                        class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                </div>
-                            </div>
-
-                            <div>
-                                <label for="simpleBgColor"
-                                    class="block text-sm font-medium text-gray-700 mb-1">Background
+                                <label for="textColor" class="block text-sm font-medium text-gray-700 mb-1">Text
                                     Color</label>
-                                <div class="flex gap-2">
-                                    <input type="color" id="simpleBgColor" name="simpleBgColor" value="#000000"
-                                        class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <input type="number" id="simpleBgOpacity" name="simpleBgOpacity" min="0" max="100"
-                                        value="50"
-                                        class="w-20 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        title="Background Opacity %">
-                                </div>
+                                <input type="color" id="textColor" name="textColor" value="#ffffff"
+                                    class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label for="fontSize" class="block text-sm font-medium text-gray-700 mb-1">Font
+                                    Size</label>
+                                <input type="number" id="fontSize" name="fontSize" min="12" max="72" value="24"
+                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                             </div>
                         </div>
 
-                        <!-- Advanced Mode -->
-                        <div id="advancedModeContainer" class="hidden space-y-6">
-                            <div id="textOverlaysContainer" class="space-y-6">
-                                <!-- Template will be inserted here -->
+                        <!-- Text Position -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="textX" class="block text-sm font-medium text-gray-700 mb-1">X Position
+                                    (%)</label>
+                                <input type="number" id="textX" name="textX" min="0" max="100" value="50"
+                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label for="textY" class="block text-sm font-medium text-gray-700 mb-1">Y Position
+                                    (%)</label>
+                                <input type="number" id="textY" name="textY" min="0" max="100" value="50"
+                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                        </div>
+
+                        <!-- Text Background -->
+                        <div>
+                            <label for="bgColor" class="block text-sm font-medium text-gray-700 mb-1">Background
+                                Color</label>
+                            <div class="flex gap-2">
+                                <input type="color" id="bgColor" name="bgColor" value="#000000"
+                                    class="h-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <input type="number" id="bgOpacity" name="bgOpacity" min="0" max="100" value="50"
+                                    class="w-20 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    title="Background Opacity %">
                             </div>
                         </div>
                     </div>
